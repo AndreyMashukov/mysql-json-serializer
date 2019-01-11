@@ -83,4 +83,53 @@ class QueryBuilderTest extends TestCase
         $sql = $builder->getSql();
         $this->assertEquals($expected, $sql);
     }
+
+    /**
+     * Should allow to build query.
+     *
+     * ManyToOne relation.
+     *
+     * @group unit
+     */
+    public function testShouldAllowToBuildQueryManyToOne()
+    {
+        $manyToOneTable = new Table('estate', 'est', 'est_id');
+        $table          = new Table('advert_group', 'adg', 'adg_id');
+        $mapping        = new Mapping();
+        $mapping
+            ->addMap($manyToOneTable, 'est_id', 'id')
+            ->addMap($manyToOneTable, 'est_name', 'name')
+            ->addMap($table, 'adg_id', 'id')
+            ->addMap($table, 'adg_name', 'name')
+        ;
+
+        $builder = new QueryBuilder($table, new FieldWrapper($mapping));
+        $builder
+            ->select()
+            ->addSimpleField('adg_id')
+            ->addSimpleField('adg_name')
+            ->setOffset(2)
+            ->setLimit(2)
+        ;
+
+        $manyToOneField = $builder->addManyToOneField($manyToOneTable, 'estate', 'adg_estate');
+        $manyToOneField
+            ->addSimpleField('est_id')
+            ->addSimpleField('est_name')
+        ;
+
+        $expected = 'SELECT JSON_OBJECT('
+            . "'id',adg.adg_id,"
+            . "'name',adg.adg_name,"
+            . "'estate',(SELECT JSON_OBJECT("
+            . "'id',est.est_id,"
+            . "'name',est.est_name"
+            . ') '
+            . 'FROM estate est '
+            . 'WHERE est.est_id = adg.adg_estate LIMIT 1)) '
+            . 'FROM advert_group adg LIMIT 2 OFFSET 2';
+
+        $sql = $builder->getSql();
+        $this->assertEquals($expected, $sql);
+    }
 }
