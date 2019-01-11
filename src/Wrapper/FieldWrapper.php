@@ -15,19 +15,39 @@ class FieldWrapper
         $this->mapping = $mapping;
     }
 
+    /**
+     * @param FieldCollection $collection
+     *
+     * @return string
+     */
     public function wrap(FieldCollection $collection): string
     {
-        $data = '';
+        $data   = '';
+        $prefix = '';
 
         /** @var Field $item */
         foreach ($collection->getElements() as $item) {
-            if ($item instanceof SimpleField) {
-                $data .= $item->getTableAlias() . '.' . $item->getName() . ',' . $this->mapping->getAlias($item);
+            $data .= $prefix;
 
-                continue;
-            }
+            $this->wrapField($data, $item);
+            $prefix = ','; // add after first
         }
 
         return "JSON_OBJECT({$data})";
+    }
+
+    /**
+     * @param string $data
+     * @param Field  $field
+     */
+    private function wrapField(string &$data, Field $field)
+    {
+        if ($field instanceof SimpleField) {
+            $data .= $field->getTableAlias() . '.' . $field->getName() . ",'" . $this->mapping->getAlias($field) . "'";
+
+            return;
+        }
+
+        // other types...
     }
 }
