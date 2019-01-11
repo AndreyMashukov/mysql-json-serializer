@@ -5,7 +5,7 @@ namespace Mash\MysqlJsonSerializer\QueryBuilder\Field;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\Table;
 use Mash\MysqlJsonSerializer\QueryBuilder\Traits\FieldManage;
 
-class OneToManyField extends Field
+class OneToManyField extends Field implements RelationInterface
 {
     use FieldManage;
 
@@ -25,14 +25,6 @@ class OneToManyField extends Field
     public function getParent(): Table
     {
         return $this->parent;
-    }
-
-    /**
-     * @return FieldCollection
-     */
-    public function getFieldList(): FieldCollection
-    {
-        return $this->fieldList;
     }
 
     /**

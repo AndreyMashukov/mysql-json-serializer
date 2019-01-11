@@ -4,7 +4,9 @@ namespace Mash\MysqlJsonSerializer\Wrapper;
 
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\Field;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\FieldCollection;
+use Mash\MysqlJsonSerializer\QueryBuilder\Field\ManyToOneField;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\OneToManyField;
+use Mash\MysqlJsonSerializer\QueryBuilder\Field\RelationInterface;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\SimpleField;
 
 class FieldWrapper
@@ -38,8 +40,8 @@ class FieldWrapper
     }
 
     /**
-     * @param string $data
-     * @param Field  $field
+     * @param string                              $data
+     * @param Field|ManyToOneField|OneToManyField $field
      */
     private function wrapField(string &$data, Field $field)
     {
@@ -55,10 +57,19 @@ class FieldWrapper
             return;
         }
 
-        // other types...
+        $data .= "'" . $this->mapping->getAlias($field) . "'," . $this->subSelect($field);
     }
 
-    private function subSelect(OneToManyField $field): string
+    private function subSelect(RelationInterface $field): string
+    {
+        if ($field instanceof OneToManyField) {
+            return $this->getOneToMany($field);
+        }
+
+        return $this->getManyToOne($field);
+    }
+
+    private function getOneToMany(OneToManyField $field): string
     {
         $parent = $field->getParent();
         $table  = $field->getTable();
@@ -66,5 +77,20 @@ class FieldWrapper
         return "JSON_ARRAY((SELECT GROUP_CONCAT({$this->wrap($field->getFieldList())}) "
             . "FROM {$table->getName()} {$table->getAlias()} "
             . "WHERE {$table->getAlias()}.{$field->getJoinField()} = {$parent->getAlias()}.{$parent->getIdField()}))";
+    }
+
+    private function getManyToOne(ManyToOneField $field): string
+    {
+        $child = $field->getChild();
+        $table = $field->getTable();
+
+        $sql = '('
+            . "SELECT {$this->wrap($field->getFieldList())} "
+            . "FROM {$table->getName()} {$table->getAlias()} "
+            . "WHERE {$table->getAlias()}.{$table->getIdField()} = {$child->getAlias()}.{$field->getJoinField()} "
+            . 'LIMIT 1)'
+        ;
+
+        return $sql;
     }
 }

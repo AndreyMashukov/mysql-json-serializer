@@ -28,7 +28,7 @@ abstract class Field
         self::TYPE_MANY_TO_ONE => true,
     ];
 
-    public static function create(Table $table, string $name, string $type, ?Table $parentTable = null, ?string $joinField = null)
+    public static function create(Table $table, string $name, string $type, ?Table $relatedTable = null, ?string $joinField = null)
     {
         if (!isset(self::ALLOWED_TYPES[$type])) {
             throw new \InvalidArgumentException(self::class . ': Allowed types: ' . \implode(', ', \array_keys(self::ALLOWED_TYPES)));
@@ -38,9 +38,9 @@ abstract class Field
             case self::TYPE_SIMPLE:
                 return new SimpleField($table, $name);
             case self::TYPE_MANY_TO_ONE:
-                return new ManyToOneField($table, $name);
+                return new ManyToOneField($table, $name, $relatedTable, $joinField);
             case self::TYPE_ONE_TO_MANY:
-                return new OneToManyField($table, $name, $parentTable, $joinField);
+                return new OneToManyField($table, $name, $relatedTable, $joinField);
         }
     }
 
