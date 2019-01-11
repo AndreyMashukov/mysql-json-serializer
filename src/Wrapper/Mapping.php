@@ -3,14 +3,21 @@
 namespace Mash\MysqlJsonSerializer\Wrapper;
 
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\Field;
+use Mash\MysqlJsonSerializer\QueryBuilder\Table\Table;
 
 class Mapping
 {
     private $map = [];
 
-    public function addMap(string $name, string $alias): self
+    public function addMap(Table $table, string $name, string $alias): self
     {
-        $this->map[$name] = $alias;
+        $tableAlias = $table->getAlias();
+
+        if (!isset($this->map[$tableAlias])) {
+            $this->map[$tableAlias] = [];
+        }
+
+        $this->map[$tableAlias][$name] = $alias;
 
         return $this;
     }
@@ -19,6 +26,6 @@ class Mapping
     {
         $name = $field->getName();
 
-        return $this->map[$name] ?? $name;
+        return $this->map[$field->getTable()->getAlias()][$name] ?? $name;
     }
 }

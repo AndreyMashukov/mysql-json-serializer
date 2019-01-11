@@ -20,7 +20,7 @@
             "Mash\\MysqlJsonSerializer\\": [
                 "src"
             ],
-            "Tests\\Mash": [
+            "Tests\\Mash\\": [
                 "tests"
             ]
         },

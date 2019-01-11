@@ -2,42 +2,37 @@
 
 namespace Mash\MysqlJsonSerializer\QueryBuilder;
 
-use Mash\MysqlJsonSerializer\QueryBuilder\Field\Field;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\FieldCollection;
+use Mash\MysqlJsonSerializer\QueryBuilder\Table\Table;
+use Mash\MysqlJsonSerializer\QueryBuilder\Traits\FieldManage;
 use Mash\MysqlJsonSerializer\Wrapper\FieldWrapper;
 
 class QueryBuilder
 {
-    public const SELECT_OPERATOR  = 'SELECT';
+    use FieldManage;
 
-    private $table;
+    public const SELECT_OPERATOR  = 'SELECT';
 
     private $operator;
 
-    private $alias;
-
-    private $fieldList;
-
     private $wrapper;
 
-    public function __construct(string $table, string $alias, FieldWrapper $fieldWrapper)
+    /** @var null|int */
+    private $offset;
+
+    /** @var null|int */
+    private $limit;
+
+    public function __construct(Table $table, FieldWrapper $fieldWrapper)
     {
         $this->fieldList = new FieldCollection();
         $this->wrapper   = $fieldWrapper;
         $this->table     = $table;
-        $this->alias     = $alias;
     }
 
     public function select(): self
     {
         $this->operator = self::SELECT_OPERATOR;
-
-        return $this;
-    }
-
-    public function addSimpleField(string $name): self
-    {
-        $this->fieldList->add(Field::create($this->alias, $name, Field::TYPE_SIMPLE));
 
         return $this;
     }
@@ -51,6 +46,58 @@ class QueryBuilder
 
     public function getSql(): string
     {
-        return $this->operator . ' ' . $this->wrapper->wrap($this->fieldList) . ' FROM ' . $this->table . ' ' . $this->alias;
+        if (!$this->operator) {
+            throw new \RuntimeException('You should set operator, use methods: select()'); // today we have only select
+        }
+
+        $sql = $this->operator . ' ' . $this->wrapper->wrap($this->fieldList)
+            . ' FROM ' . $this->table->getName() . ' ' . $this->table->getAlias()
+            . $this->getLimit()
+            . $this->getOffset()
+        ;
+
+        return $sql;
+    }
+
+    /**
+     * @param int $offset
+     *
+     * @return QueryBuilder
+     */
+    public function setOffset(int $offset): self
+    {
+        $this->offset = $offset;
+
+        return $this;
+    }
+
+    /**
+     * @param int $limit
+     *
+     * @return QueryBuilder
+     */
+    public function setLimit(int $limit): self
+    {
+        $this->limit = $limit;
+
+        return $this;
+    }
+
+    private function getOffset(): string
+    {
+        if (!$this->offset) {
+            return '';
+        }
+
+        return " OFFSET {$this->offset}";
+    }
+
+    private function getLimit(): string
+    {
+        if (!$this->limit) {
+            return '';
+        }
+
+        return " LIMIT {$this->limit}";
     }
 }

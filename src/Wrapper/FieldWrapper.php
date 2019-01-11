@@ -4,6 +4,7 @@ namespace Mash\MysqlJsonSerializer\Wrapper;
 
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\Field;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\FieldCollection;
+use Mash\MysqlJsonSerializer\QueryBuilder\Field\OneToManyField;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\SimpleField;
 
 class FieldWrapper
@@ -43,11 +44,27 @@ class FieldWrapper
     private function wrapField(string &$data, Field $field)
     {
         if ($field instanceof SimpleField) {
-            $data .= $field->getTableAlias() . '.' . $field->getName() . ",'" . $this->mapping->getAlias($field) . "'";
+            $data .= "'" . $this->mapping->getAlias($field) . "'," . $field->getTable()->getAlias() . '.' . $field->getName();
+
+            return;
+        }
+
+        if ($field instanceof OneToManyField) {
+            $data .= "'" . $this->mapping->getAlias($field) . "'," . $this->subSelect($field);
 
             return;
         }
 
         // other types...
+    }
+
+    private function subSelect(OneToManyField $field): string
+    {
+        $parent = $field->getParent();
+        $table  = $field->getTable();
+
+        return "JSON_ARRAY((SELECT GROUP_CONCAT({$this->wrap($field->getFieldList())}) "
+            . "FROM {$table->getName()} {$table->getAlias()} "
+            . "WHERE {$table->getAlias()}.{$field->getJoinField()} = {$parent->getAlias()}.{$parent->getIdField()}))";
     }
 }
