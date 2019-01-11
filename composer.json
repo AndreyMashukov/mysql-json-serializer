@@ -1,0 +1,49 @@
+{
+    "name": "mash/mysql-json-serializer",
+    "keywords": [
+        "json_object",
+        "mysql",
+        "serializer"
+    ],
+    "homepage": "https://github.com/AndreyMashukov/mysql-json-serializer",
+    "description": "Tools for serialization data to json from mysql",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Andrey Mashukov",
+            "email": "a.mashukov@yandex.ru",
+            "role": "Developer"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Mash\\MysqlJsonSerializer\\": [
+                "src"
+            ]
+        },
+        "classmap": [
+            "src"
+        ]
+    },
+    "require": {
+        "php": ">=7.2"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": [
+                "tests"
+            ]
+        }
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^2.11",
+        "phpmd/phpmd": "^2.6",
+        "symfony/process": "^4.0",
+        "pdepend/pdepend": "^2.2",
+        "phploc/phploc": "^4.0",
+        "sebastian/phpcpd": "^2.0",
+        "sebastian/version": "^2.0",
+        "mamuz/php-dependency-analysis": "^0.6",
+        "phpunit/phpunit": "^6.5"
+    }
+}
