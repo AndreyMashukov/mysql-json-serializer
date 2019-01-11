@@ -19,10 +19,14 @@
         "psr-4": {
             "Mash\\MysqlJsonSerializer\\": [
                 "src"
+            ],
+            "Tests\\Mash": [
+                "tests"
             ]
         },
         "classmap": [
-            "src"
+            "src",
+            "tests"
         ]
     },
     "require": {
