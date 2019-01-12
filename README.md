@@ -100,7 +100,7 @@ $sql = $builder->getSql();
 ```sql
 SELECT JSON_OBJECT('id',adv.adv_id,'type',adv.adv_type,'address',(SELECT JSON_OBJECT('id',adr.adr_id,'house',(SELECT JSON_OBJECT('id',hou.hou_id,'zip_code',hou.hou_zip) FROM house hou WHERE hou.hou_id = adr.adr_house AND (hou.hou_zip > :minZip) LIMIT 1)) FROM address adr WHERE adr.adr_id = adv.adv_address LIMIT 1)) FROM advert adv INNER JOIN contact ON cnt_type = :type WHERE adv_id >= :minId AND adv_id <= :maxId OR adv_id = :id OR adv_id = :second GROUP BY adv.adv_id ORDER BY adv.adv_id DESC LIMIT 2 OFFSET 2;
 ```
-`result:`
+`result`
 ```json
 [
         {"id": 8, "type": "rent", "address": {"id": 1, "house": {"id": 1, "zip_code": "125565"}}},
