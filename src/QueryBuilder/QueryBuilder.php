@@ -3,24 +3,20 @@
 namespace Mash\MysqlJsonSerializer\QueryBuilder;
 
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\CollectionField;
-use Mash\MysqlJsonSerializer\QueryBuilder\Field\FieldCollection;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\Table;
-use Mash\MysqlJsonSerializer\QueryBuilder\Traits\FieldManage;
 use Mash\MysqlJsonSerializer\QueryBuilder\Traits\PartHelper;
 use Mash\MysqlJsonSerializer\QueryBuilder\Traits\TableManage;
 use Mash\MysqlJsonSerializer\Wrapper\FieldWrapper;
 
 class QueryBuilder
 {
-    use FieldManage;
-
     use TableManage;
 
     use PartHelper;
 
     public const SELECT_OPERATOR  = 'SELECT';
 
-    private $operator;
+    private $operator = self::SELECT_OPERATOR;
 
     private $wrapper;
 
@@ -36,24 +32,9 @@ class QueryBuilder
 
     public function __construct(Table $table, FieldWrapper $fieldWrapper)
     {
-        $this->fieldList  = new FieldCollection();
         $this->wrapper    = $fieldWrapper;
         $this->table      = $table;
         $this->parameters = [];
-    }
-
-    public function select(): self
-    {
-        $this->operator = self::SELECT_OPERATOR;
-
-        return $this;
-    }
-
-    public function clearFields(): self
-    {
-        $this->fieldList->clear();
-
-        return $this;
     }
 
     public function getSql(): string
@@ -65,7 +46,7 @@ class QueryBuilder
         $where = $this->getWhere($this->table);
         $sql   = $this->operator
             . ' '
-            . $this->wrapper->wrap($this->fieldList)
+            . $this->wrapper->wrap($this->table->getFieldList())
             . ' '
             . 'FROM ' . $this->table->getName()
             . ' '
@@ -107,7 +88,9 @@ class QueryBuilder
 
     public function getParameters(): array
     {
-        return \array_merge($this->parameters, $this->joinFields($this->fieldList->getElements()));
+        $fieldList = $this->table->getFieldList();
+
+        return \array_merge($this->parameters, $this->joinFields($fieldList->getElements()));
     }
 
     public function orderBy(string $field, string $type): self

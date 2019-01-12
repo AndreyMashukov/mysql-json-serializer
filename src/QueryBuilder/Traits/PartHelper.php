@@ -17,10 +17,10 @@ trait PartHelper
             return '';
         }
 
-        $part = ' ';
+        $part = '';
 
         foreach ($joins as $join) {
-            $part .= $join;
+            $part .= ' ' . $join;
         }
 
         return $part;
