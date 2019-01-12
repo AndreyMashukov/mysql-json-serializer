@@ -2,6 +2,8 @@
 
 namespace Mash\MysqlJsonSerializer\QueryBuilder\Table;
 
+use Mash\MysqlJsonSerializer\QueryBuilder\Table\Condition\Where;
+
 class Table
 {
     private $name;
@@ -12,12 +14,16 @@ class Table
 
     private $joins;
 
+    /** @var WhereCollection */
+    protected $where;
+
     public function __construct(string $name, string $alias, string $idField)
     {
         $this->name    = $name;
         $this->alias   = $alias;
         $this->idField = $idField;
         $this->joins   = new JoinCollection();
+        $this->where   = new WhereCollection();
     }
 
     /**
@@ -51,8 +57,20 @@ class Table
         return $this;
     }
 
+    public function addWhere(Where $where): self
+    {
+        $this->where->add($where);
+
+        return $this;
+    }
+
     public function getJoins(): JoinCollection
     {
         return $this->joins;
+    }
+
+    public function getWhere(): WhereCollection
+    {
+        return $this->where;
     }
 }

@@ -23,19 +23,20 @@ class QueryBuilderTest extends TestCase
         $mapping = new Mapping();
         $mapping
             ->addMap($table, 'id', 'my_id')
-            ->addMap($table, 'field', 'my_field_name')
-        ;
+            ->addMap($table, 'field', 'my_field_name');
 
         $builder = new QueryBuilder($table, new FieldWrapper($mapping));
 
         $builder
             ->select()
             ->addSimpleField('id')
-            ->addSimpleField('field')
-        ;
+            ->addSimpleField('field');
 
         $sql = $builder->getSql();
-        $this->assertEquals("SELECT JSON_OBJECT('my_id',alias.id,'my_field_name',alias.field) FROM test_table alias", $sql);
+        $this->assertEquals(
+            "SELECT JSON_OBJECT('my_id',alias.id,'my_field_name',alias.field) FROM test_table alias",
+            $sql
+        );
     }
 
     /**
@@ -54,8 +55,7 @@ class QueryBuilderTest extends TestCase
             ->addMap($table, 'est_id', 'id')
             ->addMap($table, 'est_name', 'name')
             ->addMap($oneToManyTable, 'adg_id', 'id')
-            ->addMap($oneToManyTable, 'adg_name', 'name')
-        ;
+            ->addMap($oneToManyTable, 'adg_name', 'name');
 
         $builder = new QueryBuilder($table, new FieldWrapper($mapping));
         $builder
@@ -63,14 +63,12 @@ class QueryBuilderTest extends TestCase
             ->addSimpleField('est_id')
             ->addSimpleField('est_name')
             ->setOffset(2)
-            ->setLimit(1)
-        ;
+            ->setLimit(1);
 
         $oneToManyField = $builder->addOneToManyField($oneToManyTable, 'advert_groups', 'adg_estate');
         $oneToManyField
             ->addSimpleField('adg_id')
-            ->addSimpleField('adg_name')
-        ;
+            ->addSimpleField('adg_name');
 
         $expected = 'SELECT JSON_OBJECT('
             . "'id',est.est_id,"
@@ -100,8 +98,7 @@ class QueryBuilderTest extends TestCase
             ->addMap($manyToOneTable, 'est_id', 'id')
             ->addMap($manyToOneTable, 'est_name', 'name')
             ->addMap($table, 'adg_id', 'id')
-            ->addMap($table, 'adg_name', 'name')
-        ;
+            ->addMap($table, 'adg_name', 'name');
 
         $builder = new QueryBuilder($table, new FieldWrapper($mapping));
         $builder
@@ -109,14 +106,12 @@ class QueryBuilderTest extends TestCase
             ->addSimpleField('adg_id')
             ->addSimpleField('adg_name')
             ->setOffset(2)
-            ->setLimit(2)
-        ;
+            ->setLimit(2);
 
         $manyToOneField = $builder->addManyToOneField($manyToOneTable, 'estate', 'adg_estate');
         $manyToOneField
             ->addSimpleField('est_id')
-            ->addSimpleField('est_name')
-        ;
+            ->addSimpleField('est_name');
 
         $expected = 'SELECT JSON_OBJECT('
             . "'id',adg.adg_id,"
@@ -152,8 +147,7 @@ class QueryBuilderTest extends TestCase
             ->addMap($contact, 'cnt_id', 'id')
             ->addMap($contact, 'cnt_type', 'type')
             ->addMap($house, 'hou_id', 'id')
-            ->addMap($house, 'hou_zip', 'zip_code')
-        ;
+            ->addMap($house, 'hou_zip', 'zip_code');
 
         $builder = new QueryBuilder($advert, new FieldWrapper($mapping));
         $builder
@@ -163,16 +157,14 @@ class QueryBuilderTest extends TestCase
             ->innerJoin($contact, 'cnt_type = :type')
             ->setParameter('type', 'owner')
             ->setOffset(2)
-            ->setLimit(2)
-        ;
+            ->setLimit(2);
 
         $addressField = $builder->addManyToOneField($address, 'address', 'adv_address');
         $addressField
             ->addSimpleField('adr_id')
-            ->addManyToOneField($house, 'house', 'adr_house') // will return house field
+            ->addManyToOneField($house, 'house', 'adr_house')// will return house field
             ->addSimpleField('hou_id')
-            ->addSimpleField('hou_zip')
-        ;
+            ->addSimpleField('hou_zip');
 
         $expected = 'SELECT JSON_OBJECT('
             . "'id',adv.adv_id,"
@@ -195,5 +187,90 @@ class QueryBuilderTest extends TestCase
         $this->assertEquals($expected, $sql);
         // result example:
         // {"id": 1, "type": "rent", "address": {"id": 1, "house": {"id": 1, "zip_code": "125565"}}}
+    }
+
+    /**
+     * Should allow to add where conditions.
+     *
+     * @group unit
+     */
+    public function testShouldAllowToAddWhereConditions()
+    {
+        $advert  = new Table('advert', 'adv', 'adv_id');
+        $address = new Table('address', 'adr', 'adr_id');
+        $contact = new Table('contact', 'cnt', 'cnt_id');
+        $house   = new Table('house', 'hou', 'hou_id');
+        $mapping = new Mapping();
+        $mapping
+            ->addMap($advert, 'adv_id', 'id')
+            ->addMap($advert, 'adv_type', 'type')
+            ->addMap($address, 'adr_id', 'id')
+            ->addMap($contact, 'cnt_id', 'id')
+            ->addMap($contact, 'cnt_type', 'type')
+            ->addMap($house, 'hou_id', 'id')
+            ->addMap($house, 'hou_zip', 'zip_code');
+
+        $builder = new QueryBuilder($advert, new FieldWrapper($mapping));
+        $builder
+            ->select()
+            ->addSimpleField('adv_id')
+            ->addSimpleField('adv_type')
+            ->innerJoin($contact, 'cnt_type = :type')
+            ->setParameter('type', 'owner')
+            ->setOffset(2)
+            ->setLimit(2)
+            ->andWhere('adv_id >= :minId')
+            ->andWhere('adv_id <= :maxId')
+            ->orWhere('adv_id = :id')
+            ->orWhere('adv_id = :second')
+            ->setParameter('minId', 2)
+            ->setParameter('id', 1)
+            ->setParameter('second', 2)
+            ->setParameter('maxId', 5)
+            ->orderBy('adv.adv_id', 'DESC')
+            ->groupBy('adv.adv_id')
+        ;
+
+        $addressField = $builder->addManyToOneField($address, 'address', 'adv_address');
+        $addressField
+            ->addSimpleField('adr_id')
+            ->addManyToOneField($house, 'house', 'adr_house')// will return house field
+            ->andWhere('hou.hou_zip > :minZip')
+            ->setParameter('minZip', 0)
+            ->addSimpleField('hou_id')
+            ->addSimpleField('hou_zip');
+
+        $params   = $builder->getParameters();
+        $expected = 'SELECT JSON_OBJECT('
+            . "'id',adv.adv_id,"
+            . "'type',adv.adv_type,"
+            . "'address',("
+            . 'SELECT JSON_OBJECT('
+            . "'id',adr.adr_id,"
+            . "'house',("
+            . 'SELECT JSON_OBJECT('
+            . "'id',hou.hou_id,"
+            . "'zip_code',hou.hou_zip) "
+            . 'FROM house hou '
+            . 'WHERE hou.hou_id = adr.adr_house AND (hou.hou_zip > :minZip) LIMIT 1)) '
+            . 'FROM address adr '
+            . 'WHERE adr.adr_id = adv.adv_address LIMIT 1)) '
+            . 'FROM advert adv '
+            . 'INNER JOIN contact ON cnt_type = :type '
+            . 'WHERE adv_id >= :minId AND adv_id <= :maxId OR adv_id = :id OR adv_id = :second '
+            . 'LIMIT 2 OFFSET 2';
+
+        $expectedParams = [
+            'type'   => 'owner',
+            'minId'  => '2',
+            'id'     => '1',
+            'second' => '2',
+            'maxId'  => '5',
+            'minZip' => '0',
+        ];
+
+        $sql = $builder->getSql();
+        $this->assertEquals($expectedParams, $params);
+        $this->assertEquals($expected, $sql);
     }
 }

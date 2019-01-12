@@ -8,9 +8,12 @@ use Mash\MysqlJsonSerializer\QueryBuilder\Field\ManyToOneField;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\OneToManyField;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\RelationInterface;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\SimpleField;
+use Mash\MysqlJsonSerializer\QueryBuilder\Traits\PartHelper;
 
 class FieldWrapper
 {
+    use PartHelper;
+
     private $mapping;
 
     public function __construct(Mapping $mapping)
@@ -60,6 +63,11 @@ class FieldWrapper
         $data .= "'" . $this->mapping->getAlias($field) . "'," . $this->subSelect($field);
     }
 
+    /**
+     * @param ManyToOneField|OneToManyField|RelationInterface $field
+     *
+     * @return string
+     */
     private function subSelect(RelationInterface $field): string
     {
         if ($field instanceof OneToManyField) {
@@ -76,7 +84,10 @@ class FieldWrapper
 
         return "JSON_ARRAY((SELECT GROUP_CONCAT({$this->wrap($field->getFieldList())}) "
             . "FROM {$table->getName()} {$table->getAlias()} "
-            . "WHERE {$table->getAlias()}.{$field->getJoinField()} = {$parent->getAlias()}.{$parent->getIdField()}))";
+            . $this->getJoins($table)
+            . "WHERE {$table->getAlias()}.{$field->getJoinField()} = {$parent->getAlias()}.{$parent->getIdField()}))"
+            . $this->getWhere($table)
+            ;
     }
 
     private function getManyToOne(ManyToOneField $field): string
@@ -84,10 +95,13 @@ class FieldWrapper
         $child = $field->getChild();
         $table = $field->getTable();
 
-        $sql = '('
+        $where = $this->getWhere($table);
+        $sql   = '('
             . "SELECT {$this->wrap($field->getFieldList())} "
             . "FROM {$table->getName()} {$table->getAlias()} "
-            . "WHERE {$table->getAlias()}.{$table->getIdField()} = {$child->getAlias()}.{$field->getJoinField()} "
+            . "WHERE {$table->getAlias()}.{$table->getIdField()} = {$child->getAlias()}.{$field->getJoinField()}"
+            . ('' === $where ? '' : " AND ({$where})")
+            . ' '
             . 'LIMIT 1)'
         ;
 
