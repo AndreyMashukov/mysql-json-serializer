@@ -258,7 +258,7 @@ class QueryBuilderTest extends TestCase
             . 'FROM advert adv '
             . 'INNER JOIN contact ON cnt_type = :type '
             . 'WHERE adv_id >= :minId AND adv_id <= :maxId OR adv_id = :id OR adv_id = :second '
-            . 'LIMIT 2 OFFSET 2';
+            . 'GROUP BY adv.adv_id ORDER BY adv.adv_id DESC LIMIT 2 OFFSET 2';
 
         $expectedParams = [
             'type'   => 'owner',
