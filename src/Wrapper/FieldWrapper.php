@@ -4,10 +4,12 @@ namespace Mash\MysqlJsonSerializer\Wrapper;
 
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\Field;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\FieldCollection;
+use Mash\MysqlJsonSerializer\QueryBuilder\Field\ManyToManyField;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\ManyToOneField;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\OneToManyField;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\RelationInterface;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\SimpleField;
+use Mash\MysqlJsonSerializer\QueryBuilder\Table\JoinStrategy\ReferenceStrategy;
 use Mash\MysqlJsonSerializer\QueryBuilder\Traits\PartHelper;
 
 class FieldWrapper
@@ -54,12 +56,6 @@ class FieldWrapper
             return;
         }
 
-        if ($field instanceof OneToManyField) {
-            $data .= "'" . $this->mapping->getAlias($field) . "'," . $this->subSelect($field);
-
-            return;
-        }
-
         $data .= "'" . $this->mapping->getAlias($field) . "'," . $this->subSelect($field);
     }
 
@@ -74,7 +70,11 @@ class FieldWrapper
             return $this->getOneToMany($field);
         }
 
-        return $this->getManyToOne($field);
+        if ($field instanceof ManyToOneField) {
+            return $this->getManyToOne($field);
+        }
+
+        return $this->getManyToMany($field);
     }
 
     private function getOneToMany(OneToManyField $field): string
@@ -82,12 +82,15 @@ class FieldWrapper
         $parent = $field->getParent();
         $table  = $field->getTable();
 
-        return "JSON_ARRAY((SELECT GROUP_CONCAT({$this->wrap($field->getFieldList())}) "
+        $where = $this->getWhere($table);
+        $sql   = "JSON_ARRAY((SELECT GROUP_CONCAT({$this->wrap($field->getFieldList())}) "
             . "FROM {$table->getName()} {$table->getAlias()} "
             . $this->getJoins($table)
-            . "WHERE {$table->getAlias()}.{$field->getJoinField()} = {$parent->getAlias()}.{$parent->getIdField()}))"
-            . $this->getWhere($table)
-            ;
+            . "WHERE {$table->getAlias()}.{$field->getStrategy()} = {$parent->getAlias()}.{$parent->getIdField()}))"
+            . ('' === $where ? '' : " AND ({$where})")
+        ;
+
+        return $sql;
     }
 
     private function getManyToOne(ManyToOneField $field): string
@@ -99,10 +102,36 @@ class FieldWrapper
         $sql   = '('
             . "SELECT {$this->wrap($field->getFieldList())} "
             . "FROM {$table->getName()} {$table->getAlias()} "
-            . "WHERE {$table->getAlias()}.{$table->getIdField()} = {$child->getAlias()}.{$field->getJoinField()}"
+            . $this->getJoins($table)
+            . "WHERE {$table->getAlias()}.{$table->getIdField()} = {$child->getAlias()}.{$field->getStrategy()}"
             . ('' === $where ? '' : " AND ({$where})")
             . ' '
             . 'LIMIT 1)'
+        ;
+
+        return $sql;
+    }
+
+    private function getManyToMany(ManyToManyField $field): string
+    {
+        $table = $field->getTable();
+        /** @var ReferenceStrategy $strategy */
+        $strategy       = $field->getStrategy()->getStrategy();
+        $main           = $strategy->getFirst()->getFirst();
+        $mainRef        = $strategy->getFirst()->getSecond();
+        $collection     = $strategy->getSecond()->getFirst();
+        $collectionXref = $strategy->getSecond()->getSecond();
+
+        $where = $this->getWhere($table);
+        $sql   = "JSON_ARRAY((SELECT GROUP_CONCAT({$this->wrap($field->getFieldList())}) "
+            . "FROM {$table->getName()} {$table->getAlias()} "
+            . $this->getJoins($table) . ' '
+            . "INNER JOIN {$collectionXref->getTable()->getName()} {$collectionXref->getTable()->getAlias()} "
+            . "ON {$collection->getTable()->getAlias()}.{$collection->getField()} = "
+            . "{$collectionXref->getTable()->getAlias()}.{$collectionXref->getField()} "
+            . "WHERE {$main->getTable()->getAlias()}.{$main->getField()} = "
+            . "{$mainRef->getTable()->getAlias()}.{$mainRef->getField()}))"
+            . ('' === $where ? '' : " AND ({$where})")
         ;
 
         return $sql;

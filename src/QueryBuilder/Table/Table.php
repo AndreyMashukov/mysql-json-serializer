@@ -17,7 +17,7 @@ class Table
     /** @var WhereCollection */
     protected $where;
 
-    public function __construct(string $name, string $alias, string $idField)
+    public function __construct(string $name, string $alias, string $idField = 'id')
     {
         $this->name    = $name;
         $this->alias   = $alias;

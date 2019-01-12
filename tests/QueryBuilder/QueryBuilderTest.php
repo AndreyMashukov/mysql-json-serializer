@@ -2,7 +2,11 @@
 
 namespace Tests\Mash\QueryBuilder;
 
+use Mash\MysqlJsonSerializer\QueryBuilder\Field\CrossReference\Pair;
+use Mash\MysqlJsonSerializer\QueryBuilder\Field\CrossReference\Reference;
 use Mash\MysqlJsonSerializer\QueryBuilder\QueryBuilder;
+use Mash\MysqlJsonSerializer\QueryBuilder\Table\JoinStrategy\FieldStrategy;
+use Mash\MysqlJsonSerializer\QueryBuilder\Table\JoinStrategy\ReferenceStrategy;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\Table;
 use Mash\MysqlJsonSerializer\Wrapper\FieldWrapper;
 use Mash\MysqlJsonSerializer\Wrapper\Mapping;
@@ -65,7 +69,7 @@ class QueryBuilderTest extends TestCase
             ->setOffset(2)
             ->setLimit(1);
 
-        $oneToManyField = $builder->addOneToManyField($oneToManyTable, 'advert_groups', 'adg_estate');
+        $oneToManyField = $builder->addOneToManyField($oneToManyTable, 'advert_groups', new FieldStrategy('adg_estate'));
         $oneToManyField
             ->addSimpleField('adg_id')
             ->addSimpleField('adg_name');
@@ -108,7 +112,7 @@ class QueryBuilderTest extends TestCase
             ->setOffset(2)
             ->setLimit(2);
 
-        $manyToOneField = $builder->addManyToOneField($manyToOneTable, 'estate', 'adg_estate');
+        $manyToOneField = $builder->addManyToOneField($manyToOneTable, 'estate', new FieldStrategy('adg_estate'));
         $manyToOneField
             ->addSimpleField('est_id')
             ->addSimpleField('est_name');
@@ -159,10 +163,10 @@ class QueryBuilderTest extends TestCase
             ->setOffset(2)
             ->setLimit(2);
 
-        $addressField = $builder->addManyToOneField($address, 'address', 'adv_address');
+        $addressField = $builder->addManyToOneField($address, 'address', new FieldStrategy('adv_address'));
         $addressField
             ->addSimpleField('adr_id')
-            ->addManyToOneField($house, 'house', 'adr_house')// will return house field
+            ->addManyToOneField($house, 'house', new FieldStrategy('adr_house'))// will return house field
             ->addSimpleField('hou_id')
             ->addSimpleField('hou_zip');
 
@@ -231,10 +235,10 @@ class QueryBuilderTest extends TestCase
             ->groupBy('adv.adv_id')
         ;
 
-        $addressField = $builder->addManyToOneField($address, 'address', 'adv_address');
+        $addressField = $builder->addManyToOneField($address, 'address', new FieldStrategy('adv_address'));
         $addressField
             ->addSimpleField('adr_id')
-            ->addManyToOneField($house, 'house', 'adr_house')// will return house field
+            ->addManyToOneField($house, 'house', new FieldStrategy('adr_house'))// will return house field
             ->andWhere('hou.hou_zip > :minZip')
             ->setParameter('minZip', 0)
             ->addSimpleField('hou_id')
@@ -271,6 +275,68 @@ class QueryBuilderTest extends TestCase
 
         $sql = $builder->getSql();
         $this->assertEquals($expectedParams, $params);
+        $this->assertEquals($expected, $sql);
+    }
+
+    /**
+     * Should allow to get ManyToMany relation.
+     *
+     * @group unit
+     */
+    public function testManyToManyRelation()
+    {
+        $reference = new Table('photo_xref', 'xrf');
+
+        $photo   = new Table('photo', 'pht', 'pht_id');
+        $advert  = new Table('advert', 'adv', 'adv_id');
+        $mapping = new Mapping();
+        $mapping
+            ->addMap($advert, 'adv_id', 'id')
+            ->addMap($advert, 'adv_type', 'type')
+            ->addMap($photo, 'pht_id', 'id')
+            ->addMap($photo, 'pht_hash', 'hash')
+        ;
+
+        $builder = new QueryBuilder($advert, new FieldWrapper($mapping));
+        $builder
+            ->select()
+            ->addSimpleField('adv_id')
+            ->addSimpleField('adv_type')
+        ;
+
+        $strategy = new ReferenceStrategy(
+            new Reference(
+                new Pair($advert, 'adv_id'),
+                new Pair($reference, 'xref_adv_id')
+            ),
+            new Reference(
+                new Pair($photo, 'pht_id'),
+                new Pair($reference, 'xref_pht_id')
+            )
+        );
+
+        $builder
+            ->addManyToManyField(
+                $photo,
+                'photos',
+                $strategy
+            )
+            ->addSimpleField('pht_id')
+            ->addSimpleField('pht_hash')
+        ;
+
+        $expected = 'SELECT JSON_OBJECT('
+            . "'id',adv.adv_id,"
+            . "'type',adv.adv_type,"
+            . "'photos',JSON_ARRAY(("
+            . 'SELECT GROUP_CONCAT(JSON_OBJECT('
+            . "'id',pht.pht_id,"
+            . "'hash',pht.pht_hash)) "
+            . 'FROM photo pht  '
+            . 'INNER JOIN photo_xref xrf ON pht.pht_id = xrf.xref_pht_id '
+            . 'WHERE adv.adv_id = xrf.xref_adv_id))) FROM advert adv';
+
+        $sql = $builder->getSql();
         $this->assertEquals($expected, $sql);
     }
 }
