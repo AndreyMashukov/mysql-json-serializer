@@ -2,9 +2,11 @@
 
 namespace Mash\MysqlJsonSerializer\QueryBuilder;
 
+use Mash\MysqlJsonSerializer\QueryBuilder\Field\CollectionField;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\FieldCollection;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\Table;
 use Mash\MysqlJsonSerializer\QueryBuilder\Traits\FieldManage;
+use Mash\MysqlJsonSerializer\QueryBuilder\Traits\PartHelper;
 use Mash\MysqlJsonSerializer\QueryBuilder\Traits\TableManage;
 use Mash\MysqlJsonSerializer\Wrapper\FieldWrapper;
 
@@ -13,6 +15,8 @@ class QueryBuilder
     use FieldManage;
 
     use TableManage;
+
+    use PartHelper;
 
     public const SELECT_OPERATOR  = 'SELECT';
 
@@ -26,13 +30,16 @@ class QueryBuilder
     /** @var null|int */
     private $limit;
 
-    private $parameters = [];
+    private $orderBy = [];
+
+    private $groupBy;
 
     public function __construct(Table $table, FieldWrapper $fieldWrapper)
     {
-        $this->fieldList = new FieldCollection();
-        $this->wrapper   = $fieldWrapper;
-        $this->table     = $table;
+        $this->fieldList  = new FieldCollection();
+        $this->wrapper    = $fieldWrapper;
+        $this->table      = $table;
+        $this->parameters = [];
     }
 
     public function select(): self
@@ -55,14 +62,18 @@ class QueryBuilder
             throw new \RuntimeException('You should set operator, use methods: select()'); // today we have only select
         }
 
-        $sql = $this->operator
+        $where = $this->getWhere($this->table);
+        $sql   = $this->operator
             . ' '
             . $this->wrapper->wrap($this->fieldList)
             . ' '
             . 'FROM ' . $this->table->getName()
             . ' '
             . $this->table->getAlias()
-            . $this->getJoins()
+            . $this->getJoins($this->table)
+            . ('' === $where ? '' : ' WHERE ' . $where)
+            . $this->getGroupBy()
+            . $this->getOrderBy()
             . $this->getLimit()
             . $this->getOffset()
         ;
@@ -94,28 +105,23 @@ class QueryBuilder
         return $this;
     }
 
-    public function setParameter(string $name, string $value): self
+    public function getParameters(): array
     {
-        $this->parameters[$name] = $value;
+        return \array_merge($this->parameters, $this->joinFields($this->fieldList->getElements()));
+    }
+
+    public function orderBy(string $field, string $type): self
+    {
+        $this->orderBy = [$field, $type];
 
         return $this;
     }
 
-    private function getJoins(): string
+    public function groupBy(string $field): self
     {
-        $joins = $this->table->getJoins()->getElements();
+        $this->groupBy = $field;
 
-        if (0 === \count($joins)) {
-            return '';
-        }
-
-        $part = ' ';
-
-        foreach ($joins as $join) {
-            $part .= $join;
-        }
-
-        return $part;
+        return $this;
     }
 
     private function getOffset(): string
@@ -134,5 +140,47 @@ class QueryBuilder
         }
 
         return " LIMIT {$this->limit}";
+    }
+
+    private function joinFields(array $fields): array
+    {
+        $parameters = [];
+
+        /** @var CollectionField $element */
+        foreach ($fields as $element) {
+            if (!$element instanceof CollectionField) {
+                continue;
+            }
+
+            $elements = $element->getFieldList()->getElements();
+
+            if (0 === \count($elements)) {
+                $parameters = \array_merge($parameters, $element->getParameters());
+
+                continue;
+            }
+
+            $parameters = \array_merge($element->getParameters(), $this->joinFields($elements));
+        }
+
+        return $parameters;
+    }
+
+    private function getOrderBy(): string
+    {
+        if ([] === $this->orderBy) {
+            return '';
+        }
+
+        return ' ORDER BY ' . $this->orderBy[0] . ' ' . $this->orderBy[1];
+    }
+
+    private function getGroupBy(): string
+    {
+        if (!$this->groupBy) {
+            return '';
+        }
+
+        return ' GROUP BY ' . $this->groupBy;
     }
 }

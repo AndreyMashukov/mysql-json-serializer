@@ -2,7 +2,9 @@
 
 namespace Mash\MysqlJsonSerializer\QueryBuilder\Table;
 
-class JoinCollection
+use Mash\MysqlJsonSerializer\QueryBuilder\Table\Condition\Where;
+
+class WhereCollection
 {
     private $elements = [];
 
@@ -14,13 +16,13 @@ class JoinCollection
     }
 
     /**
-     * @param Join $join
+     * @param Where $where
      *
-     * @return JoinCollection
+     * @return WhereCollection
      */
-    public function add(Join $join): self
+    public function add(Where $where): self
     {
-        $this->elements[] = $join;
+        $this->elements[] = $where;
 
         return $this;
     }
