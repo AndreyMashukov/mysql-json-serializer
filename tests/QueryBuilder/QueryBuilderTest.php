@@ -132,4 +132,68 @@ class QueryBuilderTest extends TestCase
         $sql = $builder->getSql();
         $this->assertEquals($expected, $sql);
     }
+
+    /**
+     * Should allow to join tables.
+     *
+     * @group unit
+     */
+    public function testShouldAllowToJoinTables()
+    {
+        $advert  = new Table('advert', 'adv', 'adv_id');
+        $address = new Table('address', 'adr', 'adr_id');
+        $contact = new Table('contact', 'cnt', 'cnt_id');
+        $house   = new Table('house', 'hou', 'hou_id');
+        $mapping = new Mapping();
+        $mapping
+            ->addMap($advert, 'adv_id', 'id')
+            ->addMap($advert, 'adv_type', 'type')
+            ->addMap($address, 'adr_id', 'id')
+            ->addMap($contact, 'cnt_id', 'id')
+            ->addMap($contact, 'cnt_type', 'type')
+            ->addMap($house, 'hou_id', 'id')
+            ->addMap($house, 'hou_zip', 'zip_code')
+        ;
+
+        $builder = new QueryBuilder($advert, new FieldWrapper($mapping));
+        $builder
+            ->select()
+            ->addSimpleField('adv_id')
+            ->addSimpleField('adv_type')
+            ->innerJoin($contact, 'cnt_type = :type')
+            ->setParameter('type', 'owner')
+            ->setOffset(2)
+            ->setLimit(2)
+        ;
+
+        $addressField = $builder->addManyToOneField($address, 'address', 'adv_address');
+        $addressField
+            ->addSimpleField('adr_id')
+            ->addManyToOneField($house, 'house', 'adr_house') // will return house field
+            ->addSimpleField('hou_id')
+            ->addSimpleField('hou_zip')
+        ;
+
+        $expected = 'SELECT JSON_OBJECT('
+            . "'id',adv.adv_id,"
+            . "'type',adv.adv_type,"
+            . "'address',("
+            . 'SELECT JSON_OBJECT('
+            . "'id',adr.adr_id,"
+            . "'house',("
+            . 'SELECT JSON_OBJECT('
+            . "'id',hou.hou_id,"
+            . "'zip_code',hou.hou_zip"
+            . ') '
+            . 'FROM house hou '
+            . 'WHERE hou.hou_id = adr.adr_house LIMIT 1)) '
+            . 'FROM address adr '
+            . 'WHERE adr.adr_id = adv.adv_address LIMIT 1)) '
+            . 'FROM advert adv INNER JOIN contact ON cnt_type = :type LIMIT 2 OFFSET 2';
+
+        $sql = $builder->getSql();
+        $this->assertEquals($expected, $sql);
+        // result example:
+        // {"id": 1, "type": "rent", "address": {"id": 1, "house": {"id": 1, "zip_code": "125565"}}}
+    }
 }

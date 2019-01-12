@@ -17,7 +17,7 @@
     <!-- Run code analysis -->
     <target name="codeanalysis">
         <sequential>
-            <antcall target="extcheck"/>
+            <!--<antcall target="extcheck"/>-->
             <antcall target="pdepend"/>
             <antcall target="phpmd"/>
             <antcall target="phploc"/>

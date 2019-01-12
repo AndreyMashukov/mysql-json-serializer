@@ -4,10 +4,13 @@ namespace Mash\MysqlJsonSerializer\QueryBuilder\Field;
 
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\Table;
 use Mash\MysqlJsonSerializer\QueryBuilder\Traits\FieldManage;
+use Mash\MysqlJsonSerializer\QueryBuilder\Traits\TableManage;
 
 class OneToManyField extends Field implements RelationInterface
 {
     use FieldManage;
+
+    use TableManage;
 
     private $parent;
 
