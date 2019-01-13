@@ -48,6 +48,8 @@ abstract class Join
         $expression = $this->getType()
             . ' '
             . $this->joinTable->getName()
+            . ' '
+            . $this->joinTable->getAlias()
             . ' ON '
             . $this->condition;
 

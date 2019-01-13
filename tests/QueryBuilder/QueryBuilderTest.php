@@ -23,20 +23,18 @@ class QueryBuilderTest extends TestCase
      */
     public function testShouldAllowToBuildQuerySimple()
     {
-        $table   = new Table('test_table', 'alias', 'id');
+        $table = (new Table('test_table', 'alias', 'id'))
+            ->addSimpleField('id')
+            ->addSimpleField('field')
+        ;
+
         $mapping = new Mapping();
         $mapping
             ->addMap($table, 'id', 'my_id')
             ->addMap($table, 'field', 'my_field_name');
 
         $builder = new QueryBuilder($table, new FieldWrapper($mapping));
-
-        $builder
-            ->select()
-            ->addSimpleField('id')
-            ->addSimpleField('field');
-
-        $sql = $builder->getSql();
+        $sql     = $builder->getSql();
         $this->assertEquals(
             "SELECT JSON_OBJECT('my_id',alias.id,'my_field_name',alias.field) FROM test_table alias",
             $sql
@@ -52,9 +50,17 @@ class QueryBuilderTest extends TestCase
      */
     public function testShouldAllowToBuildQueryOneToMany()
     {
-        $oneToManyTable = new Table('advert_group', 'adg', 'adg_id');
-        $table          = new Table('estate', 'est', 'est_id');
-        $mapping        = new Mapping();
+        $oneToManyTable = (new Table('advert_group', 'adg', 'adg_id'))
+            ->addSimpleField('adg_id')
+            ->addSimpleField('adg_name')
+        ;
+
+        $table = (new Table('estate', 'est', 'est_id'))
+            ->addSimpleField('est_id')
+            ->addSimpleField('est_name')
+            ->addOneToManyField($oneToManyTable, 'advert_groups', new FieldStrategy('adg_estate'));
+
+        $mapping = new Mapping();
         $mapping
             ->addMap($table, 'est_id', 'id')
             ->addMap($table, 'est_name', 'name')
@@ -63,16 +69,8 @@ class QueryBuilderTest extends TestCase
 
         $builder = new QueryBuilder($table, new FieldWrapper($mapping));
         $builder
-            ->select()
-            ->addSimpleField('est_id')
-            ->addSimpleField('est_name')
             ->setOffset(2)
             ->setLimit(1);
-
-        $oneToManyField = $builder->addOneToManyField($oneToManyTable, 'advert_groups', new FieldStrategy('adg_estate'));
-        $oneToManyField
-            ->addSimpleField('adg_id')
-            ->addSimpleField('adg_name');
 
         $expected = 'SELECT JSON_OBJECT('
             . "'id',est.est_id,"
@@ -80,7 +78,8 @@ class QueryBuilderTest extends TestCase
             . "'advert_groups',JSON_ARRAY(("
             . "SELECT GROUP_CONCAT(JSON_OBJECT('id',adg.adg_id,'name',adg.adg_name)) "
             . 'FROM advert_group adg WHERE adg.adg_estate = est.est_id))) '
-            . 'FROM estate est LIMIT 1 OFFSET 2';
+            . 'FROM estate est LIMIT 1 OFFSET 2'
+        ;
 
         $sql = $builder->getSql();
         $this->assertEquals($expected, $sql);
@@ -95,9 +94,18 @@ class QueryBuilderTest extends TestCase
      */
     public function testShouldAllowToBuildQueryManyToOne()
     {
-        $manyToOneTable = new Table('estate', 'est', 'est_id');
-        $table          = new Table('advert_group', 'adg', 'adg_id');
-        $mapping        = new Mapping();
+        $manyToOneTable = (new Table('estate', 'est', 'est_id'))
+            ->addSimpleField('est_id')
+            ->addSimpleField('est_name')
+        ;
+
+        $table = (new Table('advert_group', 'adg', 'adg_id'))
+            ->addSimpleField('adg_id')
+            ->addSimpleField('adg_name')
+            ->addManyToOneField($manyToOneTable, 'estate', new FieldStrategy('adg_estate'))
+        ;
+
+        $mapping = new Mapping();
         $mapping
             ->addMap($manyToOneTable, 'est_id', 'id')
             ->addMap($manyToOneTable, 'est_name', 'name')
@@ -106,16 +114,8 @@ class QueryBuilderTest extends TestCase
 
         $builder = new QueryBuilder($table, new FieldWrapper($mapping));
         $builder
-            ->select()
-            ->addSimpleField('adg_id')
-            ->addSimpleField('adg_name')
             ->setOffset(2)
             ->setLimit(2);
-
-        $manyToOneField = $builder->addManyToOneField($manyToOneTable, 'estate', new FieldStrategy('adg_estate'));
-        $manyToOneField
-            ->addSimpleField('est_id')
-            ->addSimpleField('est_name');
 
         $expected = 'SELECT JSON_OBJECT('
             . "'id',adg.adg_id,"
@@ -139,10 +139,23 @@ class QueryBuilderTest extends TestCase
      */
     public function testShouldAllowToJoinTables()
     {
-        $advert  = new Table('advert', 'adv', 'adv_id');
-        $address = new Table('address', 'adr', 'adr_id');
+        $house = (new Table('house', 'hou', 'hou_id'))
+            ->addSimpleField('hou_id')
+            ->addSimpleField('hou_zip')
+        ;
+
+        $address = (new Table('address', 'adr', 'adr_id'))
+            ->addSimpleField('adr_id')
+            ->addManyToOneField($house, 'house', new FieldStrategy('adr_house'))
+        ;
+
+        $advert = (new Table('advert', 'adv', 'adv_id'))
+            ->addSimpleField('adv_id')
+            ->addSimpleField('adv_type')
+            ->addManyToOneField($address, 'address', new FieldStrategy('adv_address'))
+        ;
+
         $contact = new Table('contact', 'cnt', 'cnt_id');
-        $house   = new Table('house', 'hou', 'hou_id');
         $mapping = new Mapping();
         $mapping
             ->addMap($advert, 'adv_id', 'id')
@@ -155,20 +168,10 @@ class QueryBuilderTest extends TestCase
 
         $builder = new QueryBuilder($advert, new FieldWrapper($mapping));
         $builder
-            ->select()
-            ->addSimpleField('adv_id')
-            ->addSimpleField('adv_type')
-            ->innerJoin($contact, 'cnt_type = :type')
+            ->innerJoin($contact, 'cnt.cnt_type = :type AND adv.adv_contact = cnt.cnt_id')
             ->setParameter('type', 'owner')
             ->setOffset(2)
             ->setLimit(2);
-
-        $addressField = $builder->addManyToOneField($address, 'address', new FieldStrategy('adv_address'));
-        $addressField
-            ->addSimpleField('adr_id')
-            ->addManyToOneField($house, 'house', new FieldStrategy('adr_house'))// will return house field
-            ->addSimpleField('hou_id')
-            ->addSimpleField('hou_zip');
 
         $expected = 'SELECT JSON_OBJECT('
             . "'id',adv.adv_id,"
@@ -185,7 +188,8 @@ class QueryBuilderTest extends TestCase
             . 'WHERE hou.hou_id = adr.adr_house LIMIT 1)) '
             . 'FROM address adr '
             . 'WHERE adr.adr_id = adv.adv_address LIMIT 1)) '
-            . 'FROM advert adv INNER JOIN contact ON cnt_type = :type LIMIT 2 OFFSET 2';
+            . 'FROM advert adv '
+            . 'INNER JOIN contact cnt ON cnt.cnt_type = :type AND adv.adv_contact = cnt.cnt_id LIMIT 2 OFFSET 2';
 
         $sql = $builder->getSql();
         $this->assertEquals($expected, $sql);
@@ -200,10 +204,23 @@ class QueryBuilderTest extends TestCase
      */
     public function testShouldAllowToAddWhereConditions()
     {
-        $advert  = new Table('advert', 'adv', 'adv_id');
-        $address = new Table('address', 'adr', 'adr_id');
+        $house = (new Table('house', 'hou', 'hou_id'))
+            ->addSimpleField('hou_id')
+            ->addSimpleField('hou_zip')
+        ;
+
+        $address = (new Table('address', 'adr', 'adr_id'))
+            ->addSimpleField('adr_id')
+            ->addManyToOneField($house, 'house', new FieldStrategy('adr_house'))
+        ;
+
+        $advert = (new Table('advert', 'adv', 'adv_id'))
+            ->addSimpleField('adv_id')
+            ->addSimpleField('adv_type')
+            ->addManyToOneField($address, 'address', new FieldStrategy('adv_address'))
+        ;
+
         $contact = new Table('contact', 'cnt', 'cnt_id');
-        $house   = new Table('house', 'hou', 'hou_id');
         $mapping = new Mapping();
         $mapping
             ->addMap($advert, 'adv_id', 'id')
@@ -216,10 +233,9 @@ class QueryBuilderTest extends TestCase
 
         $builder = new QueryBuilder($advert, new FieldWrapper($mapping));
         $builder
-            ->select()
-            ->addSimpleField('adv_id')
-            ->addSimpleField('adv_type')
-            ->innerJoin($contact, 'cnt_type = :type')
+            ->innerJoin($contact, 'cnt.cnt_type = :type AND adv.adv_contact = cnt.cnt_id')
+            ->innerJoin($address, 'adv.adv_address = adr.adr_id')
+            ->innerJoin($house, 'hou.hou_zip > :minZip AND hou.hou_id = adr.adr_house')
             ->setParameter('type', 'owner')
             ->setOffset(2)
             ->setLimit(2)
@@ -231,18 +247,10 @@ class QueryBuilderTest extends TestCase
             ->setParameter('id', 1)
             ->setParameter('second', 2)
             ->setParameter('maxId', 5)
+            ->setParameter('minZip', 0)
             ->orderBy('adv.adv_id', 'DESC')
             ->groupBy('adv.adv_id')
         ;
-
-        $addressField = $builder->addManyToOneField($address, 'address', new FieldStrategy('adv_address'));
-        $addressField
-            ->addSimpleField('adr_id')
-            ->addManyToOneField($house, 'house', new FieldStrategy('adr_house'))// will return house field
-            ->andWhere('hou.hou_zip > :minZip')
-            ->setParameter('minZip', 0)
-            ->addSimpleField('hou_id')
-            ->addSimpleField('hou_zip');
 
         $params   = $builder->getParameters();
         $expected = 'SELECT JSON_OBJECT('
@@ -256,11 +264,13 @@ class QueryBuilderTest extends TestCase
             . "'id',hou.hou_id,"
             . "'zip_code',hou.hou_zip) "
             . 'FROM house hou '
-            . 'WHERE hou.hou_id = adr.adr_house AND (hou.hou_zip > :minZip) LIMIT 1)) '
+            . 'WHERE hou.hou_id = adr.adr_house LIMIT 1)) '
             . 'FROM address adr '
             . 'WHERE adr.adr_id = adv.adv_address LIMIT 1)) '
             . 'FROM advert adv '
-            . 'INNER JOIN contact ON cnt_type = :type '
+            . 'INNER JOIN contact cnt ON cnt.cnt_type = :type AND adv.adv_contact = cnt.cnt_id '
+            . 'INNER JOIN address adr ON adv.adv_address = adr.adr_id '
+            . 'INNER JOIN house hou ON hou.hou_zip > :minZip AND hou.hou_id = adr.adr_house '
             . 'WHERE adv_id >= :minId AND adv_id <= :maxId OR adv_id = :id OR adv_id = :second '
             . 'GROUP BY adv.adv_id ORDER BY adv.adv_id DESC LIMIT 2 OFFSET 2';
 
@@ -285,26 +295,14 @@ class QueryBuilderTest extends TestCase
      */
     public function testManyToManyRelation()
     {
-        $reference = new Table('photo_xref', 'xrf');
-
-        $photo   = new Table('photo', 'pht', 'pht_id');
-        $advert  = new Table('advert', 'adv', 'adv_id');
-        $mapping = new Mapping();
-        $mapping
-            ->addMap($advert, 'adv_id', 'id')
-            ->addMap($advert, 'adv_type', 'type')
-            ->addMap($photo, 'pht_id', 'id')
-            ->addMap($photo, 'pht_hash', 'hash')
-        ;
-
-        $builder = new QueryBuilder($advert, new FieldWrapper($mapping));
-        $builder
-            ->select()
+        $photo  = new Table('photo', 'pht', 'pht_id');
+        $advert = (new Table('advert', 'adv', 'adv_id'))
             ->addSimpleField('adv_id')
             ->addSimpleField('adv_type')
         ;
 
-        $strategy = new ReferenceStrategy(
+        $reference = new Table('photo_xref', 'xrf');
+        $strategy  = new ReferenceStrategy(
             new Reference(
                 new Pair($advert, 'adv_id'),
                 new Pair($reference, 'xref_adv_id')
@@ -315,15 +313,22 @@ class QueryBuilderTest extends TestCase
             )
         );
 
-        $builder
-            ->addManyToManyField(
-                $photo,
-                'photos',
-                $strategy
-            )
+        $mapping = new Mapping();
+        $mapping
+            ->addMap($advert, 'adv_id', 'id')
+            ->addMap($advert, 'adv_type', 'type')
+            ->addMap($photo, 'pht_id', 'id')
+            ->addMap($photo, 'pht_hash', 'hash')
+        ;
+
+        $builder = new QueryBuilder($advert, new FieldWrapper($mapping));
+
+        $photo
             ->addSimpleField('pht_id')
             ->addSimpleField('pht_hash')
         ;
+
+        $advert->addManyToManyField($photo, 'photos', $strategy);
 
         $expected = 'SELECT JSON_OBJECT('
             . "'id',adv.adv_id,"

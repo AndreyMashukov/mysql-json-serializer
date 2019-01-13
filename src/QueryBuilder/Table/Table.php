@@ -2,10 +2,14 @@
 
 namespace Mash\MysqlJsonSerializer\QueryBuilder\Table;
 
+use Mash\MysqlJsonSerializer\QueryBuilder\Field\FieldCollection;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\Condition\Where;
+use Mash\MysqlJsonSerializer\QueryBuilder\Traits\FieldManage;
 
 class Table
 {
+    use FieldManage;
+
     private $name;
 
     private $alias;
@@ -19,11 +23,12 @@ class Table
 
     public function __construct(string $name, string $alias, string $idField = 'id')
     {
-        $this->name    = $name;
-        $this->alias   = $alias;
-        $this->idField = $idField;
-        $this->joins   = new JoinCollection();
-        $this->where   = new WhereCollection();
+        $this->name      = $name;
+        $this->alias     = $alias;
+        $this->idField   = $idField;
+        $this->joins     = new JoinCollection();
+        $this->where     = new WhereCollection();
+        $this->fieldList = new FieldCollection();
     }
 
     /**

@@ -4,9 +4,6 @@ namespace Mash\MysqlJsonSerializer\QueryBuilder\Traits;
 
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\Field;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\FieldCollection;
-use Mash\MysqlJsonSerializer\QueryBuilder\Field\ManyToManyField;
-use Mash\MysqlJsonSerializer\QueryBuilder\Field\ManyToOneField;
-use Mash\MysqlJsonSerializer\QueryBuilder\Field\OneToManyField;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\JoinStrategy\FieldStrategy;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\JoinStrategy\ReferenceStrategy;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\Table;
@@ -28,7 +25,7 @@ trait FieldManage
      */
     public function addSimpleField(string $name): self
     {
-        $this->fieldList->add(Field::create($this->table, $name, Field::TYPE_SIMPLE));
+        $this->fieldList->add(Field::create($this, $name, Field::TYPE_SIMPLE));
 
         return $this;
     }
@@ -40,14 +37,14 @@ trait FieldManage
      * @param string        $name
      * @param FieldStrategy $joinStrategy
      *
-     * @return OneToManyField
+     * @return $this
      */
-    public function addOneToManyField(Table $table, string $name, FieldStrategy $joinStrategy): OneToManyField
+    public function addOneToManyField(Table $table, string $name, FieldStrategy $joinStrategy): self
     {
-        $field = Field::create($table, $name, Field::TYPE_ONE_TO_MANY, $this->table, $joinStrategy);
+        $field = Field::create($table, $name, Field::TYPE_ONE_TO_MANY, $this, $joinStrategy);
         $this->fieldList->add($field);
 
-        return $field;
+        return $this;
     }
 
     /**
@@ -57,14 +54,14 @@ trait FieldManage
      * @param string        $name
      * @param FieldStrategy $joinStrategy
      *
-     * @return ManyToOneField
+     * @return $this
      */
-    public function addManyToOneField(Table $table, string $name, FieldStrategy $joinStrategy): ManyToOneField
+    public function addManyToOneField(Table $table, string $name, FieldStrategy $joinStrategy): self
     {
-        $field = Field::create($table, $name, Field::TYPE_MANY_TO_ONE, $this->table, $joinStrategy);
+        $field = Field::create($table, $name, Field::TYPE_MANY_TO_ONE, $this, $joinStrategy);
         $this->fieldList->add($field);
 
-        return $field;
+        return $this;
     }
 
     /**
@@ -74,14 +71,14 @@ trait FieldManage
      * @param string            $name
      * @param ReferenceStrategy $joinStrategy
      *
-     * @return ManyToManyField
+     * @return $this
      */
-    public function addManyToManyField(Table $table, string $name, ReferenceStrategy $joinStrategy): ManyToManyField
+    public function addManyToManyField(Table $table, string $name, ReferenceStrategy $joinStrategy): self
     {
         $field = Field::create($table, $name, Field::TYPE_MANY_TO_MANY, null, $joinStrategy);
         $this->fieldList->add($field);
 
-        return $field;
+        return $this;
     }
 
     /**
@@ -90,5 +87,12 @@ trait FieldManage
     public function getFieldList(): FieldCollection
     {
         return $this->fieldList;
+    }
+
+    public function clearFields(): self
+    {
+        $this->fieldList->clear();
+
+        return $this;
     }
 }

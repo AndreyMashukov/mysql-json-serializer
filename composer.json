@@ -30,7 +30,12 @@
         ]
     },
     "require": {
-        "php": ">=7.2"
+        "php": ">=7.2",
+        "sensio/framework-extra-bundle": "^5.1",
+        "symfony/http-kernel": "^4.1",
+        "symfony/event-dispatcher": "~3.4|~4.0",
+        "symfony/doctrine-bridge": "~3.0|~4.0",
+        "doctrine/orm": "^2.3"
     },
     "autoload-dev": {
         "psr-4": {
@@ -47,7 +52,6 @@
         "phploc/phploc": "^4.0",
         "sebastian/phpcpd": "^2.0",
         "sebastian/version": "^2.0",
-        "mamuz/php-dependency-analysis": "^0.6",
         "phpunit/phpunit": "^6.5"
     }
 }
