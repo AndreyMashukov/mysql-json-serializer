@@ -14,6 +14,11 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\KernelEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 
+/**
+ * Class KernelListener.
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)
+ */
 class KernelListener implements EventSubscriberInterface
 {
     private const SUPPORTED_TYPES = [
