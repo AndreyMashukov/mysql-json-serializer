@@ -23,7 +23,7 @@
             <antcall target="phploc"/>
             <antcall target="phpcpd"/>
             <antcall target="phpcs"/>
-            <antcall target="phpda"/>
+            <!--<antcall target="phpda"/>-->
         </sequential>
     </target>
 

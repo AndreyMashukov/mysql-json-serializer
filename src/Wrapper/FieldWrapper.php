@@ -82,12 +82,12 @@ class FieldWrapper
         $parent = $field->getParent();
         $table  = $field->getTable();
 
-        $where = $this->getWhere($table);
-        $sql   = "JSON_ARRAY((SELECT GROUP_CONCAT({$this->wrap($field->getFieldList())}) "
+        //$where = $this->getWhere($table);
+        $sql   = "(SELECT (CASE WHEN {$table->getAlias()}.{$field->getStrategy()} IS NULL THEN NULL ELSE CAST(CONCAT('[', GROUP_CONCAT({$this->wrap($field->getFieldList())}), ']') AS JSON) END) "
             . "FROM {$table->getName()} {$table->getAlias()} "
-            . $this->getJoins($table)
-            . "WHERE {$table->getAlias()}.{$field->getStrategy()} = {$parent->getAlias()}.{$parent->getIdField()}))"
-            . ('' === $where ? '' : " AND ({$where})")
+            . "INNER JOIN {$parent->getName()} {$parent->getAlias()}_2 ON {$parent->getAlias()}_2.{$parent->getIdField()} = {$table->getAlias()}.{$field->getStrategy()} "
+            . "WHERE {$parent->getAlias()}_2.{$parent->getIdField()} = {$parent->getAlias()}.{$parent->getIdField()} "
+            . "GROUP BY {$parent->getAlias()}_2.{$parent->getIdField()})"
         ;
 
         return $sql;
@@ -123,14 +123,14 @@ class FieldWrapper
         $collectionXref = $strategy->getSecond()->getSecond();
 
         $where = $this->getWhere($table);
-        $sql   = "JSON_ARRAY((SELECT GROUP_CONCAT({$this->wrap($field->getFieldList())}) "
+        $sql   = "(SELECT (CASE WHEN {$collectionXref->getTable()->getAlias()}.{$collectionXref->getField()} IS NULL THEN NULL ELSE CAST(CONCAT('[', GROUP_CONCAT({$this->wrap($field->getFieldList())}), ']') AS JSON) END) "
             . "FROM {$table->getName()} {$table->getAlias()} "
             . $this->getJoins($table) . ' '
             . "INNER JOIN {$collectionXref->getTable()->getName()} {$collectionXref->getTable()->getAlias()} "
             . "ON {$collection->getTable()->getAlias()}.{$collection->getField()} = "
             . "{$collectionXref->getTable()->getAlias()}.{$collectionXref->getField()} "
             . "WHERE {$main->getTable()->getAlias()}.{$main->getField()} = "
-            . "{$mainRef->getTable()->getAlias()}.{$mainRef->getField()}))"
+            . "{$mainRef->getTable()->getAlias()}.{$mainRef->getField()})"
             . ('' === $where ? '' : " AND ({$where})")
         ;
 

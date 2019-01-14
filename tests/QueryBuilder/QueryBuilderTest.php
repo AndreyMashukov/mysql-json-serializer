@@ -75,9 +75,14 @@ class QueryBuilderTest extends TestCase
         $expected = 'SELECT JSON_OBJECT('
             . "'id',est.est_id,"
             . "'name',est.est_name,"
-            . "'advert_groups',JSON_ARRAY(("
-            . "SELECT GROUP_CONCAT(JSON_OBJECT('id',adg.adg_id,'name',adg.adg_name)) "
-            . 'FROM advert_group adg WHERE adg.adg_estate = est.est_id))) '
+            . "'advert_groups',("
+            . 'SELECT ('
+            . 'CASE WHEN adg.adg_estate IS NULL '
+            . 'THEN NULL '
+            . "ELSE CAST(CONCAT('[', GROUP_CONCAT(JSON_OBJECT('id',adg.adg_id,'name',adg.adg_name)), ']') AS JSON) "
+            . 'END) '
+            . 'FROM advert_group adg '
+            . 'INNER JOIN estate est_2 ON est_2.est_id = adg.adg_estate WHERE est_2.est_id = est.est_id GROUP BY est_2.est_id)) '
             . 'FROM estate est LIMIT 1 OFFSET 2'
         ;
 
@@ -289,6 +294,8 @@ class QueryBuilderTest extends TestCase
     }
 
     /**
+     * ToDo fix it!
+     *
      * Should allow to get ManyToMany relation.
      *
      * @group unit
