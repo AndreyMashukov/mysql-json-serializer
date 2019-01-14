@@ -2,7 +2,6 @@
 
 namespace Mash\MysqlJsonSerializer\QueryBuilder;
 
-use Mash\MysqlJsonSerializer\QueryBuilder\Field\CollectionField;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\Table;
 use Mash\MysqlJsonSerializer\QueryBuilder\Traits\PartHelper;
 use Mash\MysqlJsonSerializer\QueryBuilder\Traits\TableManage;
@@ -46,7 +45,7 @@ class QueryBuilder
         $where = $this->getWhere($this->table);
         $sql   = $this->operator
             . ' '
-            . $this->wrapper->wrap($this->table->getFieldList())
+            . "JSON_ARRAYAGG({$this->wrapper->select($this->table)})"
             . ' '
             . 'FROM ' . $this->table->getName()
             . ' '
@@ -88,9 +87,7 @@ class QueryBuilder
 
     public function getParameters(): array
     {
-        $fieldList = $this->table->getFieldList();
-
-        return \array_merge($this->parameters, $this->joinFields($fieldList->getElements()));
+        return $this->parameters;
     }
 
     public function orderBy(string $field, string $type): self
@@ -123,30 +120,6 @@ class QueryBuilder
         }
 
         return " LIMIT {$this->limit}";
-    }
-
-    private function joinFields(array $fields): array
-    {
-        $parameters = [];
-
-        /** @var CollectionField $element */
-        foreach ($fields as $element) {
-            if (!$element instanceof CollectionField) {
-                continue;
-            }
-
-            $elements = $element->getFieldList()->getElements();
-
-            if (0 === \count($elements)) {
-                $parameters = \array_merge($parameters, $element->getParameters());
-
-                continue;
-            }
-
-            $parameters = \array_merge($element->getParameters(), $this->joinFields($elements));
-        }
-
-        return $parameters;
     }
 
     private function getOrderBy(): string

@@ -36,7 +36,7 @@ class QueryBuilderTest extends TestCase
         $builder = new QueryBuilder($table, new FieldWrapper($mapping));
         $sql     = $builder->getSql();
         $this->assertEquals(
-            "SELECT JSON_OBJECT('my_id',alias.id,'my_field_name',alias.field) FROM test_table alias",
+            "SELECT JSON_ARRAYAGG(JSON_OBJECT('my_id',alias.id,'my_field_name',alias.field)) FROM test_table alias",
             $sql
         );
     }
@@ -72,17 +72,13 @@ class QueryBuilderTest extends TestCase
             ->setOffset(2)
             ->setLimit(1);
 
-        $expected = 'SELECT JSON_OBJECT('
+        $expected = 'SELECT JSON_ARRAYAGG(JSON_OBJECT('
             . "'id',est.est_id,"
             . "'name',est.est_name,"
             . "'advert_groups',("
-            . 'SELECT ('
-            . 'CASE WHEN adg.adg_estate IS NULL '
-            . 'THEN NULL '
-            . "ELSE CAST(CONCAT('[', GROUP_CONCAT(JSON_OBJECT('id',adg.adg_id,'name',adg.adg_name)), ']') AS JSON) "
-            . 'END) '
+            . "SELECT JSON_ARRAYAGG(JSON_OBJECT('id',adg.adg_id,'name',adg.adg_name)) "
             . 'FROM advert_group adg '
-            . 'INNER JOIN estate est_2 ON est_2.est_id = adg.adg_estate WHERE est_2.est_id = est.est_id GROUP BY est_2.est_id)) '
+            . 'INNER JOIN estate est_2 ON est_2.est_id = adg.adg_estate WHERE est_2.est_id = est.est_id))) '
             . 'FROM estate est LIMIT 1 OFFSET 2'
         ;
 
@@ -122,7 +118,7 @@ class QueryBuilderTest extends TestCase
             ->setOffset(2)
             ->setLimit(2);
 
-        $expected = 'SELECT JSON_OBJECT('
+        $expected = 'SELECT JSON_ARRAYAGG(JSON_OBJECT('
             . "'id',adg.adg_id,"
             . "'name',adg.adg_name,"
             . "'estate',(SELECT JSON_OBJECT("
@@ -130,7 +126,7 @@ class QueryBuilderTest extends TestCase
             . "'name',est.est_name"
             . ') '
             . 'FROM estate est '
-            . 'WHERE est.est_id = adg.adg_estate LIMIT 1)) '
+            . 'WHERE est.est_id = adg.adg_estate LIMIT 1))) '
             . 'FROM advert_group adg LIMIT 2 OFFSET 2';
 
         $sql = $builder->getSql();
@@ -178,7 +174,7 @@ class QueryBuilderTest extends TestCase
             ->setOffset(2)
             ->setLimit(2);
 
-        $expected = 'SELECT JSON_OBJECT('
+        $expected = 'SELECT JSON_ARRAYAGG(JSON_OBJECT('
             . "'id',adv.adv_id,"
             . "'type',adv.adv_type,"
             . "'address',("
@@ -192,7 +188,7 @@ class QueryBuilderTest extends TestCase
             . 'FROM house hou '
             . 'WHERE hou.hou_id = adr.adr_house LIMIT 1)) '
             . 'FROM address adr '
-            . 'WHERE adr.adr_id = adv.adv_address LIMIT 1)) '
+            . 'WHERE adr.adr_id = adv.adv_address LIMIT 1))) '
             . 'FROM advert adv '
             . 'INNER JOIN contact cnt ON cnt.cnt_type = :type AND adv.adv_contact = cnt.cnt_id LIMIT 2 OFFSET 2';
 
@@ -258,7 +254,7 @@ class QueryBuilderTest extends TestCase
         ;
 
         $params   = $builder->getParameters();
-        $expected = 'SELECT JSON_OBJECT('
+        $expected = 'SELECT JSON_ARRAYAGG(JSON_OBJECT('
             . "'id',adv.adv_id,"
             . "'type',adv.adv_type,"
             . "'address',("
@@ -271,7 +267,7 @@ class QueryBuilderTest extends TestCase
             . 'FROM house hou '
             . 'WHERE hou.hou_id = adr.adr_house LIMIT 1)) '
             . 'FROM address adr '
-            . 'WHERE adr.adr_id = adv.adv_address LIMIT 1)) '
+            . 'WHERE adr.adr_id = adv.adv_address LIMIT 1))) '
             . 'FROM advert adv '
             . 'INNER JOIN contact cnt ON cnt.cnt_type = :type AND adv.adv_contact = cnt.cnt_id '
             . 'INNER JOIN address adr ON adv.adv_address = adr.adr_id '
@@ -294,8 +290,6 @@ class QueryBuilderTest extends TestCase
     }
 
     /**
-     * ToDo fix it!
-     *
      * Should allow to get ManyToMany relation.
      *
      * @group unit
@@ -337,16 +331,16 @@ class QueryBuilderTest extends TestCase
 
         $advert->addManyToManyField($photo, 'photos', $strategy);
 
-        $expected = 'SELECT JSON_OBJECT('
+        $expected = 'SELECT JSON_ARRAYAGG(JSON_OBJECT('
             . "'id',adv.adv_id,"
             . "'type',adv.adv_type,"
-            . "'photos',JSON_ARRAY(("
-            . 'SELECT GROUP_CONCAT(JSON_OBJECT('
+            . "'photos',(SELECT JSON_ARRAYAGG(JSON_OBJECT("
             . "'id',pht.pht_id,"
             . "'hash',pht.pht_hash)) "
             . 'FROM photo pht  '
             . 'INNER JOIN photo_xref xrf ON pht.pht_id = xrf.xref_pht_id '
-            . 'WHERE adv.adv_id = xrf.xref_adv_id))) FROM advert adv';
+            . 'INNER JOIN advert adv_2 ON adv_2.adv_id = xrf.xref_adv_id '
+            . 'WHERE adv_2.adv_id = adv.adv_id))) FROM advert adv';
 
         $sql = $builder->getSql();
         $this->assertEquals($expected, $sql);
