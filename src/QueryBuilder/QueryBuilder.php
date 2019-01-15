@@ -2,6 +2,9 @@
 
 namespace Mash\MysqlJsonSerializer\QueryBuilder;
 
+use Mash\MysqlJsonSerializer\Annotation\Expose;
+use Mash\MysqlJsonSerializer\QueryBuilder\SQL\JsonArray;
+use Mash\MysqlJsonSerializer\QueryBuilder\SQL\JsonPagination;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\Table;
 use Mash\MysqlJsonSerializer\QueryBuilder\Traits\PartHelper;
 use Mash\MysqlJsonSerializer\QueryBuilder\Traits\TableManage;
@@ -29,6 +32,8 @@ class QueryBuilder
 
     private $groupBy;
 
+    private $groups = Expose::DEFAULT_GROUPS;
+
     public function __construct(Table $table, FieldWrapper $fieldWrapper)
     {
         $this->wrapper    = $fieldWrapper;
@@ -36,29 +41,56 @@ class QueryBuilder
         $this->parameters = [];
     }
 
-    public function getSql(): string
+    public function jsonArray(): JsonArray
+    {
+        return new JsonArray($this->getParameters(), $this->getSql());
+    }
+
+    public function jsonPagination(int $page, int $limit)
+    {
+        $this->setLimit($limit);
+        $this->setOffset(($page - 1) * $limit);
+
+        return new JsonPagination($this->getParameters(), $this->getSql(), $this->getCountSql(), $limit, $page);
+    }
+
+    private function getSql(): string
     {
         if (!$this->operator) {
             throw new \RuntimeException('You should set operator, use methods: select()'); // today we have only select
         }
 
-        $where = $this->getWhere($this->table);
-        $sql   = $this->operator
+        $sql = $this->operator
             . ' '
-            . "JSON_ARRAYAGG({$this->wrapper->select($this->table)})"
+            . "JSON_ARRAYAGG({$this->wrapper->select($this->table, $this->groups, '_res')})"
             . ' '
-            . 'FROM ' . $this->table->getName()
+            . "FROM (SELECT * FROM {$this->table->getName()} {$this->table->getAlias()}"
             . ' '
-            . $this->table->getAlias()
-            . $this->getJoins($this->table)
-            . ('' === $where ? '' : ' WHERE ' . $where)
-            . $this->getGroupBy()
-            . $this->getOrderBy()
+            . $this->getMainSql()
             . $this->getLimit()
             . $this->getOffset()
+            . ') '
+            . "{$this->table->getAlias()}_res"
         ;
 
         return $sql;
+    }
+
+    private function getMainSql(): string
+    {
+        $where = $this->getWhere($this->table);
+        $sql   = $this->getJoins($this->table)
+            . ('' === $where ? '' : ' WHERE ' . $where)
+            . $this->getGroupBy()
+            . $this->getOrderBy()
+        ;
+
+        return $sql;
+    }
+
+    private function getCountSql(): string
+    {
+        return "SELECT COUNT({$this->table->getAlias()}_paginate.{$this->table->getIdField()}) FROM {$this->table->getName()} {$this->table->getAlias()}_paginate" . $this->getMainSql();
     }
 
     /**
@@ -138,5 +170,13 @@ class QueryBuilder
         }
 
         return ' GROUP BY ' . $this->groupBy;
+    }
+
+    /**
+     * @param array $groups
+     */
+    public function setGroups(array $groups): void
+    {
+        $this->groups = $groups;
     }
 }

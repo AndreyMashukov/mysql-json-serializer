@@ -2,13 +2,17 @@
 
 namespace Mash\MysqlJsonSerializer\QueryBuilder\Table;
 
+use Mash\MysqlJsonSerializer\Annotation\Expose;
+use Mash\MysqlJsonSerializer\QueryBuilder\Field\Field;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\FieldCollection;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\Condition\Where;
-use Mash\MysqlJsonSerializer\QueryBuilder\Traits\FieldManage;
+use Mash\MysqlJsonSerializer\QueryBuilder\Table\JoinStrategy\FieldStrategy;
+use Mash\MysqlJsonSerializer\QueryBuilder\Table\JoinStrategy\ReferenceStrategy;
 
 class Table
 {
-    use FieldManage;
+    /** @var FieldCollection */
+    protected $fieldList;
 
     private $name;
 
@@ -77,5 +81,122 @@ class Table
     public function getWhere(): WhereCollection
     {
         return $this->where;
+    }
+
+    /**
+     * @SuppressWarnings(PHPMD.StaticAccess)
+     *
+     * @param string $name
+     * @param array  $serializeGroups
+     *
+     * @return Table
+     */
+    public function addSimpleField(string $name, array $serializeGroups = Expose::DEFAULT_GROUPS): self
+    {
+        $this->fieldList->add(
+            Field::create(
+                $this,
+                $name,
+                Field::TYPE_SIMPLE,
+                null,
+                null,
+                $serializeGroups
+            )
+        );
+
+        return $this;
+    }
+
+    /**
+     * @SuppressWarnings(PHPMD.StaticAccess)
+     *
+     * @param Table         $table
+     * @param string        $name
+     * @param FieldStrategy $joinStrategy
+     * @param array         $serializeGroups
+     *
+     * @return Table
+     */
+    public function addOneToManyField(self $table, string $name, FieldStrategy $joinStrategy, array $serializeGroups = Expose::DEFAULT_GROUPS): self
+    {
+        $field = Field::create(
+            $table,
+            $name,
+            Field::TYPE_ONE_TO_MANY,
+            $this,
+            $joinStrategy,
+            $serializeGroups
+        );
+
+        $this->fieldList->add($field);
+
+        return $this;
+    }
+
+    /**
+     * @SuppressWarnings(PHPMD.StaticAccess)
+     *
+     * @param Table         $table
+     * @param string        $name
+     * @param FieldStrategy $joinStrategy
+     * @param array         $serializeGroups
+     *
+     * @return Table
+     */
+    public function addManyToOneField(self $table, string $name, FieldStrategy $joinStrategy, array $serializeGroups = Expose::DEFAULT_GROUPS): self
+    {
+        $field = Field::create(
+            $table,
+            $name,
+            Field::TYPE_MANY_TO_ONE,
+            $this,
+            $joinStrategy,
+            $serializeGroups
+        );
+
+        $this->fieldList->add($field);
+
+        return $this;
+    }
+
+    /**
+     * @SuppressWarnings(PHPMD.StaticAccess)
+     *
+     * @param Table             $table
+     * @param string            $name
+     * @param ReferenceStrategy $joinStrategy
+     * @param array             $serializeGroups
+     *
+     * @return $this
+     */
+    public function addManyToManyField(self $table, string $name, ReferenceStrategy $joinStrategy, array $serializeGroups = Expose::DEFAULT_GROUPS): self
+    {
+        $field = Field::create(
+            $table,
+            $name,
+            Field::TYPE_MANY_TO_MANY,
+            null,
+            $joinStrategy,
+            $serializeGroups
+        );
+
+        $this->fieldList->add($field);
+
+        return $this;
+    }
+
+    /**
+     * @return FieldCollection
+     */
+    public function getFieldList(): FieldCollection
+    {
+        return $this->fieldList;
+    }
+
+    public function clearFields(): self
+    {
+        $this->fieldList->clear();
+
+        return $this;
     }
 }

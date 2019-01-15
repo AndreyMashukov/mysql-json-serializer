@@ -5,6 +5,7 @@ namespace Mash\MysqlJsonSerializer\Service;
 use Doctrine\Common\Annotations\Reader;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\Mapping\ClassMetadata;
+use Mash\MysqlJsonSerializer\Annotation\Expose;
 use Mash\MysqlJsonSerializer\Annotation\Table as TableAnnotation;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\JoinStrategy\FieldStrategy;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\Table;
@@ -92,7 +93,7 @@ class KernelListener implements EventSubscriberInterface
             $table     = new Table($metadata->getTableName(), $annotation->getAlias(), $idMapping['columnName']);
             $this->tableManager->addTable($table, $class);
 
-            $this->fillMapping($metadata, $table);
+            $this->fillMapping($metadata, $table, $result['reflection']);
 
             if (0 === \count($metadata->associationMappings)) {
                 continue;
@@ -163,9 +164,10 @@ class KernelListener implements EventSubscriberInterface
     private function annotationFilter(array $data): \Generator
     {
         foreach ($data as $metadata) {
-            $class = $metadata->getName();
+            $class      = $metadata->getName();
+            $reflection = new \ReflectionClass($class);
 
-            $annotations = $this->reader->getClassAnnotations(new \ReflectionClass($class));
+            $annotations = $this->reader->getClassAnnotations($reflection);
             if (0 === \count($annotations)) {
                 continue;
             }
@@ -179,15 +181,41 @@ class KernelListener implements EventSubscriberInterface
             yield $class => [
                 'metadata'   => $metadata,
                 'annotation' => $annotation,
+                'reflection' => $reflection,
             ];
         }
     }
 
-    private function fillMapping(ClassMetadata $metadata, Table $table): void
+    private function fillMapping(ClassMetadata $metadata, Table $table, \ReflectionClass $reflection): void
     {
         foreach ($metadata->fieldMappings as $fieldMapping) {
             $this->mapping->addMap($table, $fieldMapping['columnName'], $fieldMapping['fieldName']);
-            $table->addSimpleField($fieldMapping['columnName']);
+
+            $prop   = $reflection->getProperty($fieldMapping['fieldName']);
+            $expose = $this->getFieldExpose($prop);
+
+            if (!$expose) {
+                $table->addSimpleField($fieldMapping['columnName']);
+
+                continue;
+            }
+
+            $table->addSimpleField($fieldMapping['columnName'], $expose->getGroups());
         }
+    }
+
+    private function getFieldExpose(\ReflectionProperty $property): ?Expose
+    {
+        $annotations = $this->reader->getPropertyAnnotations($property);
+
+        foreach ($annotations as $annotation) {
+            if (!$annotation instanceof Expose) {
+                continue;
+            }
+
+            return $annotation;
+        }
+
+        return null;
     }
 }
