@@ -57,11 +57,6 @@ SELECT JSON_ARRAYAGG(JSON_OBJECT('id',est_res.est_id,'name',est_res.est_name,'ad
 ```
 
 #### Example 2 (SELECT JSON WITH ManyToOne relation field)
-With: 
-* Where conditions
-* Inner Join
-* Group By and Order By
-* Offset and Limit
 ```php
 <?php
 
