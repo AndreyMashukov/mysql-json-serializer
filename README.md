@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.com/AndreyMashukov/mysql-json-serializer.svg?branch=master)](https://travis-ci.com/AndreyMashukov/mysql-json-serializer)
+
 # mysql-json-serializer
 This solution will help you to get serialized data from mysql
 
