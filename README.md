@@ -1,5 +1,7 @@
 [![Build Status](https://travis-ci.com/AndreyMashukov/mysql-json-serializer.svg?branch=master)](https://travis-ci.com/AndreyMashukov/mysql-json-serializer)
 
+[![MIT Licence](https://badges.frapsoft.com/os/mit/mit.svg?v=103)](https://opensource.org/licenses/mit-license.php)
+
 # mysql-json-serializer
 This solution will help you to get serialized data from mysql
 
