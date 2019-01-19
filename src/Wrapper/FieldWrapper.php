@@ -7,6 +7,7 @@ use Mash\MysqlJsonSerializer\QueryBuilder\Field\FieldCollection;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\ManyToManyField;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\ManyToOneField;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\OneToManyField;
+use Mash\MysqlJsonSerializer\QueryBuilder\Field\OneToOneField;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\RelationInterface;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\SimpleField;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\JoinStrategy\ReferenceStrategy;
@@ -124,6 +125,10 @@ class FieldWrapper
             return $this->getManyToOne($field, $aliasSuffix);
         }
 
+        if ($field instanceof OneToOneField) {
+            return $this->getOneToOne($field, $aliasSuffix);
+        }
+
         return $this->getManyToMany($field, $aliasSuffix);
     }
 
@@ -156,6 +161,25 @@ class FieldWrapper
             . "FROM {$table->getName()} {$table->getAlias()} "
             . $this->getJoins($table)
             . "WHERE {$table->getAlias()}.{$table->getIdField()} = {$child->getAlias()}{$aliasSuffix}.{$field->getStrategy()}"
+            . ('' === $where ? '' : " AND ({$where})")
+            . ' '
+            . 'LIMIT 1)'
+        ;
+
+        return $sql;
+    }
+
+    private function getOneToOne(OneToOneField $field, string $aliasSuffix = ''): string
+    {
+        $parent = $field->getParent();
+        $table  = $field->getTable();
+
+        $where = $this->getWhere($table);
+        $sql   = '('
+            . "SELECT {$this->wrap($field->getFieldList())} "
+            . "FROM {$table->getName()} {$table->getAlias()} "
+            . $this->getJoins($table)
+            . "WHERE {$table->getAlias()}.{$table->getIdField()} = {$parent->getAlias()}{$aliasSuffix}.{$field->getStrategy()}"
             . ('' === $where ? '' : " AND ({$where})")
             . ' '
             . 'LIMIT 1)'

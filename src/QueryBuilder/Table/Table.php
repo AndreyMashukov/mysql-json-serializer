@@ -162,6 +162,30 @@ class Table
     /**
      * @SuppressWarnings(PHPMD.StaticAccess)
      *
+     * @param Table         $table
+     * @param string        $name
+     * @param FieldStrategy $joinStrategy
+     * @param array         $serializeGroups
+     *
+     * @return Table
+     */
+    public function addOneToOneField(self $table, string $name, FieldStrategy $joinStrategy, array $serializeGroups = Expose::DEFAULT_GROUPS): self
+    {
+        $field = Field::create(
+            $table,
+            $name,
+            Field::TYPE_ONE_TO_ONE,
+            $this,
+            $joinStrategy,
+            $serializeGroups
+        );
+
+        $this->fieldList->add($field);
+    }
+
+    /**
+     * @SuppressWarnings(PHPMD.StaticAccess)
+     *
      * @param Table             $table
      * @param string            $name
      * @param ReferenceStrategy $joinStrategy
