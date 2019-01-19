@@ -286,4 +286,42 @@ class QueryBuilderTest extends TestCase
         $sql = $builder->jsonArray();
         $this->assertEquals($expected, $sql);
     }
+
+    /**
+     * Should allow to build query.
+     *
+     * OneToOne relation.
+     *
+     * @group unit
+     */
+    public function testShouldAllowToBuildQueryOneToOne()
+    {
+        $oneToOneTable = (new Table('page', 'pge', 'pge_id'))
+            ->addSimpleField('pge_id')
+            ->addSimpleField('pge_url')
+        ;
+
+        $table = (new Table('advert', 'adv', 'adv_id'))
+            ->addSimpleField('adv_id')
+            ->addSimpleField('adv_type')
+            ->addManyToOneField($oneToOneTable, 'page', new FieldStrategy('adv_page'))
+        ;
+
+        $mapping = new Mapping();
+        $mapping
+            ->addMap($oneToOneTable, 'pge_id', 'id')
+            ->addMap($oneToOneTable, 'pge_url', 'url')
+            ->addMap($table, 'adv_id', 'id')
+            ->addMap($table, 'adv_type', 'type');
+
+        $builder = new QueryBuilder($table, new FieldWrapper($mapping));
+        $builder
+            ->setOffset(2)
+            ->setLimit(2);
+
+        $expected = "SELECT JSON_ARRAYAGG(JSON_OBJECT('id',adv_res.adv_id,'type',adv_res.adv_type,'page',(SELECT JSON_OBJECT('id',pge.pge_id,'url',pge.pge_url) FROM page pge WHERE pge.pge_id = adv_res.adv_page LIMIT 1))) FROM (SELECT * FROM advert adv  LIMIT 2 OFFSET 2) adv_res";
+
+        $sql = $builder->jsonArray();
+        $this->assertEquals($expected, $sql->getSql());
+    }
 }
