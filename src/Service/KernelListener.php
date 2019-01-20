@@ -106,6 +106,16 @@ class KernelListener implements EventSubscriberInterface
             $relations[$class] = $metadata->associationMappings;
         }
 
+        $this->processRelations($relations);
+    }
+
+    /**
+     * @param array $relations
+     *
+     * @throws \ReflectionException
+     */
+    private function processRelations(array $relations)
+    {
         foreach ($relations as $table => $relation) {
             $main = $this->tableManager->getTable($table);
 
@@ -165,13 +175,10 @@ class KernelListener implements EventSubscriberInterface
                     continue;
                 }
 
-                if (ClassMetadata::ONE_TO_ONE === $data['type']) {
-                    $field = $data['joinColumns'][0]['name'];
+                // ONE TO ONE
+                $field = $data['joinColumns'][0]['name'];
 
-                    $main->addOneToOneField($reference, $this->toSnake($data['fieldName']), new FieldStrategy($field), $groups);
-
-                    continue;
-                }
+                $main->addOneToOneField($reference, $this->toSnake($data['fieldName']), new FieldStrategy($field), $groups);
             }
         }
     }
@@ -200,6 +207,13 @@ class KernelListener implements EventSubscriberInterface
         return null;
     }
 
+    /**
+     * @param array $data
+     *
+     * @throws \ReflectionException
+     *
+     * @return \Generator
+     */
     private function annotationFilter(array $data): \Generator
     {
         foreach ($data as $metadata) {
