@@ -7,7 +7,10 @@ use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Mash\MysqlJsonSerializer\Annotation\Expose;
 use Mash\MysqlJsonSerializer\Annotation\Table as TableAnnotation;
+use Mash\MysqlJsonSerializer\QueryBuilder\Field\CrossReference\Pair;
+use Mash\MysqlJsonSerializer\QueryBuilder\Field\CrossReference\Reference;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\JoinStrategy\FieldStrategy;
+use Mash\MysqlJsonSerializer\QueryBuilder\Table\JoinStrategy\ReferenceStrategy;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\Table;
 use Mash\MysqlJsonSerializer\Wrapper\Mapping;
 use Symfony\Bridge\Doctrine\RegistryInterface;
@@ -26,6 +29,7 @@ class KernelListener implements EventSubscriberInterface
         ClassMetadata::MANY_TO_ONE  => true,
         ClassMetadata::ONE_TO_MANY  => true,
         ClassMetadata::MANY_TO_MANY => true,
+        ClassMetadata::ONE_TO_ONE   => true,
     ];
 
     private $tableManager;
@@ -112,12 +116,21 @@ class KernelListener implements EventSubscriberInterface
                     continue;
                 }
 
+                $reflection  = new \ReflectionClass($table);
                 $refMetadata = $relations[$data['targetEntity']];
+
+                $prop   = $reflection->getProperty($data['fieldName']);
+                $expose = $this->getFieldExpose($prop);
+                $groups = Expose::DEFAULT_GROUPS;
+
+                if ($expose) {
+                    $groups = $expose->getGroups();
+                }
 
                 if (ClassMetadata::ONE_TO_MANY === $data['type']) {
                     $field = $refMetadata[$data['mappedBy']]['joinColumns'][0]['name'];
 
-                    $main->addOneToManyField($reference, $data['fieldName'], new FieldStrategy($field));
+                    $main->addOneToManyField($reference, $this->toSnake($data['fieldName']), new FieldStrategy($field), $groups);
 
                     continue;
                 }
@@ -125,12 +138,38 @@ class KernelListener implements EventSubscriberInterface
                 if (ClassMetadata::MANY_TO_ONE === $data['type']) {
                     $field = $data['joinColumns'][0]['name'];
 
-                    $main->addManyToOneField($reference, $data['fieldName'], new FieldStrategy($field));
+                    $main->addManyToOneField($reference, $this->toSnake($data['fieldName']), new FieldStrategy($field), $groups);
 
                     continue;
                 }
 
                 if (ClassMetadata::MANY_TO_MANY === $data['type']) {
+                    if ([] === $data['joinTable']) {
+                        continue;
+                    }
+
+                    $joinTable = new Table($data['joinTable']['name'], $data['joinTable']['name'] . '_mtm');
+                    $strategy  = new ReferenceStrategy(
+                        new Reference(
+                            new Pair($this->tableManager->getTable($data['sourceEntity']), 'adv_id'),
+                            new Pair($joinTable, $data['joinTable']['joinColumns'][0]['name'])
+                        ),
+                        new Reference(
+                            new Pair($reference, $reference->getIdField()),
+                            new Pair($joinTable, $data['joinTable']['inverseJoinColumns'][0]['name'])
+                        )
+                    );
+
+                    $main->addManyToManyField($reference, $this->toSnake($data['fieldName']), $strategy, $groups);
+
+                    continue;
+                }
+
+                if (ClassMetadata::ONE_TO_ONE === $data['type']) {
+                    $field = $data['joinColumns'][0]['name'];
+
+                    $main->addOneToOneField($reference, $this->toSnake($data['fieldName']), new FieldStrategy($field), $groups);
+
                     continue;
                 }
             }
@@ -189,7 +228,9 @@ class KernelListener implements EventSubscriberInterface
     private function fillMapping(ClassMetadata $metadata, Table $table, \ReflectionClass $reflection): void
     {
         foreach ($metadata->fieldMappings as $fieldMapping) {
-            $this->mapping->addMap($table, $fieldMapping['columnName'], $fieldMapping['fieldName']);
+            $name = $this->toSnake($fieldMapping['fieldName']);
+
+            $this->mapping->addMap($table, $fieldMapping['columnName'], $name);
 
             $prop   = $reflection->getProperty($fieldMapping['fieldName']);
             $expose = $this->getFieldExpose($prop);
@@ -217,5 +258,10 @@ class KernelListener implements EventSubscriberInterface
         }
 
         return null;
+    }
+
+    private function toSnake(string $name): string
+    {
+        return \ltrim(\mb_strtolower(\preg_replace('/[A-Z]([A-Z](?![a-z]))*/', '_$0', $name)), '_');
     }
 }

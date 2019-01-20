@@ -42,6 +42,7 @@ abstract class Field
         self::TYPE_ONE_TO_MANY  => true,
         self::TYPE_MANY_TO_ONE  => true,
         self::TYPE_MANY_TO_MANY => true,
+        self::TYPE_ONE_TO_ONE   => true,
     ];
 
     /**
@@ -69,6 +70,8 @@ abstract class Field
                 return (new OneToManyField($table, $name, $relatedTable, $strategy))->setGroups($groups);
             case self::TYPE_MANY_TO_MANY:
                 return (new ManyToManyField($table, $name, $strategy))->setGroups($groups);
+            case self::TYPE_ONE_TO_ONE:
+                return (new OneToOneField($table, $name, $relatedTable, $strategy))->setGroups($groups);
         }
     }
 

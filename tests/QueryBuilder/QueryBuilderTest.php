@@ -8,12 +8,23 @@ use Mash\MysqlJsonSerializer\QueryBuilder\QueryBuilder;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\JoinStrategy\FieldStrategy;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\JoinStrategy\ReferenceStrategy;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\Table;
+use Mash\MysqlJsonSerializer\Service\TableManager;
 use Mash\MysqlJsonSerializer\Wrapper\FieldWrapper;
 use Mash\MysqlJsonSerializer\Wrapper\Mapping;
 use PHPUnit\Framework\TestCase;
 
 class QueryBuilderTest extends TestCase
 {
+    /** @var TableManager */
+    private $tableManager;
+
+    public function setUp()
+    {
+        $this->tableManager = $this->getMockBuilder(TableManager::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+    }
+
     /**
      * Should allow to build query.
      *
@@ -33,7 +44,7 @@ class QueryBuilderTest extends TestCase
             ->addMap($table, 'id', 'my_id')
             ->addMap($table, 'field', 'my_field_name');
 
-        $builder = new QueryBuilder($table, new FieldWrapper($mapping));
+        $builder = new QueryBuilder($table, new FieldWrapper($mapping), $this->tableManager);
         $sql     = $builder->jsonArray();
         $this->assertEquals(
             "SELECT JSON_ARRAYAGG(JSON_OBJECT('my_id',alias_res.id,'my_field_name',alias_res.field)) FROM (SELECT * FROM test_table alias ) alias_res",
@@ -67,16 +78,16 @@ class QueryBuilderTest extends TestCase
             ->addMap($oneToManyTable, 'adg_id', 'id')
             ->addMap($oneToManyTable, 'adg_name', 'name');
 
-        $builder = new QueryBuilder($table, new FieldWrapper($mapping));
+        $builder = new QueryBuilder($table, new FieldWrapper($mapping), $this->tableManager);
         $builder
             ->setOffset(2)
             ->setLimit(1);
 
-        $expected = "SELECT JSON_ARRAYAGG(JSON_OBJECT('id',est_res.est_id,'name',est_res.est_name,'advert_groups',(SELECT JSON_ARRAYAGG(JSON_OBJECT('id',adg.adg_id,'name',adg.adg_name)) FROM advert_group adg INNER JOIN estate est_2 ON est_2.est_id = adg.adg_estate WHERE est_2.est_id = est_res.est_id))) FROM (SELECT * FROM estate est  LIMIT 1 OFFSET 2) est_res"
+        $expected = "/SELECT JSON_ARRAYAGG\\(JSON_OBJECT\\('id',est_res\\.est_id,'name',est_res\\.est_name,'advert_groups',\\(SELECT JSON_ARRAYAGG\\(JSON_OBJECT\\('id',adg_[a-z0-9]{5}\\.adg_id,'name',adg_[a-z0-9]{5}\\.adg_name\\)\\) FROM advert_group adg_[a-z0-9]{5} INNER JOIN estate est_[a-z0-9]{5} ON est_[a-z0-9]{5}\\.est_id = adg_[a-z0-9]{5}\\.adg_estate WHERE est_[a-z0-9]{5}\\.est_id = est_res\\.est_id\\)\\)\\) FROM \\(SELECT \\* FROM estate est  LIMIT 1 OFFSET 2\\) est_res/ui"
         ;
 
         $sql = $builder->jsonArray();
-        $this->assertEquals($expected, $sql->getSql());
+        $this->assertRegExp($expected, $sql->getSql());
     }
 
     /**
@@ -106,15 +117,15 @@ class QueryBuilderTest extends TestCase
             ->addMap($table, 'adg_id', 'id')
             ->addMap($table, 'adg_name', 'name');
 
-        $builder = new QueryBuilder($table, new FieldWrapper($mapping));
+        $builder = new QueryBuilder($table, new FieldWrapper($mapping), $this->tableManager);
         $builder
             ->setOffset(2)
             ->setLimit(2);
 
-        $expected = "SELECT JSON_ARRAYAGG(JSON_OBJECT('id',adg_res.adg_id,'name',adg_res.adg_name,'estate',(SELECT JSON_OBJECT('id',est.est_id,'name',est.est_name) FROM estate est WHERE est.est_id = adg_res.adg_estate LIMIT 1))) FROM (SELECT * FROM advert_group adg  LIMIT 2 OFFSET 2) adg_res";
+        $expected = "/SELECT JSON_ARRAYAGG\\(JSON_OBJECT\\('id',adg_res\\.adg_id,'name',adg_res\\.adg_name,'estate',\\(SELECT JSON_OBJECT\\('id',est_[a-z0-9]{5}\\.est_id,'name',est_[a-z0-9]{5}\\.est_name\\) FROM estate est_[a-z0-9]{5} WHERE est_[a-z0-9]{5}\\.est_id = adg_res\\.adg_estate LIMIT 1\\)\\)\\) FROM \\(SELECT \\* FROM advert_group adg  LIMIT 2 OFFSET 2\\) adg_res/ui";
 
         $sql = $builder->jsonArray();
-        $this->assertEquals($expected, $sql->getSql());
+        $this->assertRegExp($expected, $sql->getSql());
     }
 
     /**
@@ -151,17 +162,17 @@ class QueryBuilderTest extends TestCase
             ->addMap($house, 'hou_id', 'id')
             ->addMap($house, 'hou_zip', 'zip_code');
 
-        $builder = new QueryBuilder($advert, new FieldWrapper($mapping));
+        $builder = new QueryBuilder($advert, new FieldWrapper($mapping), $this->tableManager);
         $builder
             ->innerJoin($contact, 'cnt.cnt_type = :type AND adv.adv_contact = cnt.cnt_id')
             ->setParameter('type', 'owner')
             ->setOffset(2)
             ->setLimit(2);
 
-        $expected = "SELECT JSON_ARRAYAGG(JSON_OBJECT('id',adv_res.adv_id,'type',adv_res.adv_type,'address',(SELECT JSON_OBJECT('id',adr.adr_id,'house',(SELECT JSON_OBJECT('id',hou.hou_id,'zip_code',hou.hou_zip) FROM house hou WHERE hou.hou_id = adr.adr_house LIMIT 1)) FROM address adr WHERE adr.adr_id = adv_res.adv_address LIMIT 1))) FROM (SELECT * FROM advert adv  INNER JOIN contact cnt ON cnt.cnt_type = :type AND adv.adv_contact = cnt.cnt_id LIMIT 2 OFFSET 2) adv_res";
+        $expected = "/SELECT JSON_ARRAYAGG\\(JSON_OBJECT\\('id',adv_res\\.adv_id,'type',adv_res\\.adv_type,'address',\\(SELECT JSON_OBJECT\\('id',adr_[a-z0-9]{5}\\.adr_id,'house',\\(SELECT JSON_OBJECT\\('id',hou_[a-z0-9]{5}\\.hou_id,'zip_code',hou_[a-z0-9]{5}\\.hou_zip\\) FROM house hou_[a-z0-9]{5} WHERE hou_[a-z0-9]{5}\\.hou_id = adr_[a-z0-9]{5}\\.adr_house LIMIT 1\\)\\) FROM address adr_[a-z0-9]{5} WHERE adr_[a-z0-9]{5}\\.adr_id = adv_res\\.adv_address LIMIT 1\\)\\)\\) FROM \\(SELECT \\* FROM advert adv  INNER JOIN contact cnt ON cnt\\.cnt_type = :type AND adv\\.adv_contact = cnt\\.cnt_id LIMIT 2 OFFSET 2\\) adv_res/ui";
 
         $sql = $builder->jsonArray();
-        $this->assertEquals($expected, $sql->getSql());
+        $this->assertRegExp($expected, $sql->getSql());
         // result example:
         // {"id": 1, "type": "rent", "address": {"id": 1, "house": {"id": 1, "zip_code": "125565"}}}
     }
@@ -200,7 +211,7 @@ class QueryBuilderTest extends TestCase
             ->addMap($house, 'hou_id', 'id')
             ->addMap($house, 'hou_zip', 'zip_code');
 
-        $builder = new QueryBuilder($advert, new FieldWrapper($mapping));
+        $builder = new QueryBuilder($advert, new FieldWrapper($mapping), $this->tableManager);
         $builder
             ->innerJoin($contact, 'cnt.cnt_type = :type AND adv.adv_contact = cnt.cnt_id')
             ->innerJoin($address, 'adv.adv_address = adr.adr_id')
@@ -222,7 +233,7 @@ class QueryBuilderTest extends TestCase
         ;
 
         $params   = $builder->getParameters();
-        $expected = "SELECT JSON_ARRAYAGG(JSON_OBJECT('id',adv_res.adv_id,'type',adv_res.adv_type,'address',(SELECT JSON_OBJECT('id',adr.adr_id,'house',(SELECT JSON_OBJECT('id',hou.hou_id,'zip_code',hou.hou_zip) FROM house hou WHERE hou.hou_id = adr.adr_house LIMIT 1)) FROM address adr WHERE adr.adr_id = adv_res.adv_address LIMIT 1))) FROM (SELECT * FROM advert adv  INNER JOIN contact cnt ON cnt.cnt_type = :type AND adv.adv_contact = cnt.cnt_id INNER JOIN address adr ON adv.adv_address = adr.adr_id INNER JOIN house hou ON hou.hou_zip > :minZip AND hou.hou_id = adr.adr_house WHERE adv_id >= :minId AND adv_id <= :maxId OR adv_id = :id OR adv_id = :second GROUP BY adv.adv_id ORDER BY adv.adv_id DESC LIMIT 2 OFFSET 2) adv_res";
+        $expected = "/SELECT JSON_ARRAYAGG\\(JSON_OBJECT\\('id',adv_res\\.adv_id,'type',adv_res\\.adv_type,'address',\\(SELECT JSON_OBJECT\\('id',adr_[a-z0-9]{5}\\.adr_id,'house',\\(SELECT JSON_OBJECT\\('id',hou_[a-z0-9]{5}\\.hou_id,'zip_code',hou_[a-z0-9]{5}\\.hou_zip\\) FROM house hou_[a-z0-9]{5} WHERE hou_[a-z0-9]{5}\\.hou_id = adr_[a-z0-9]{5}\\.adr_house LIMIT 1\\)\\) FROM address adr_[a-z0-9]{5} WHERE adr_[a-z0-9]{5}\\.adr_id = adv_res.adv_address LIMIT 1\\)\\)\\) FROM \\(SELECT \\* FROM advert adv  INNER JOIN contact cnt ON cnt\\.cnt_type = :type AND adv\\.adv_contact = cnt\\.cnt_id INNER JOIN address adr ON adv\\.adv_address = adr\\.adr_id INNER JOIN house hou ON hou\\.hou_zip > :minZip AND hou\\.hou_id = adr\\.adr_house WHERE adv_id >= :minId AND adv_id <= :maxId OR adv_id = :id OR adv_id = :second GROUP BY adv\\.adv_id ORDER BY adv\\.adv_id DESC LIMIT 2 OFFSET 2\\) adv_res/ui";
 
         $expectedParams = [
             'type'   => 'owner',
@@ -235,7 +246,7 @@ class QueryBuilderTest extends TestCase
 
         $sql = $builder->jsonArray();
         $this->assertEquals($expectedParams, $params);
-        $this->assertEquals($expected, $sql);
+        $this->assertRegExp($expected, $sql->getSql());
     }
 
     /**
@@ -271,7 +282,7 @@ class QueryBuilderTest extends TestCase
             ->addMap($photo, 'pht_hash', 'hash')
         ;
 
-        $builder = new QueryBuilder($advert, new FieldWrapper($mapping));
+        $builder = new QueryBuilder($advert, new FieldWrapper($mapping), $this->tableManager);
         $builder->setLimit(2);
 
         $photo
@@ -281,10 +292,10 @@ class QueryBuilderTest extends TestCase
 
         $advert->addManyToManyField($photo, 'photos', $strategy);
 
-        $expected = "SELECT JSON_ARRAYAGG(JSON_OBJECT('id',adv_res.adv_id,'type',adv_res.adv_type,'photos',(SELECT JSON_ARRAYAGG(JSON_OBJECT('id',pht.pht_id,'hash',pht.pht_hash)) FROM photo pht  INNER JOIN photo_xref xrf ON pht.pht_id = xrf.xref_pht_id INNER JOIN advert adv_2 ON adv_2.adv_id = xrf.xref_adv_id WHERE adv_2.adv_id = adv_res.adv_id))) FROM (SELECT * FROM advert adv  LIMIT 2) adv_res";
+        $expected = "/SELECT JSON_ARRAYAGG\\(JSON_OBJECT\\('id',adv_res\\.adv_id,'type',adv_res\\.adv_type,'photos',\\(SELECT JSON_ARRAYAGG\\(JSON_OBJECT\\('id',pht_[a-z0-9]{5}\\.pht_id,'hash',pht_[a-z0-9]{5}\\.pht_hash\\)\\) FROM photo pht_[a-z0-9]{5}  INNER JOIN photo_xref xrf_[a-z0-9]{5} ON pht_[a-z0-9]{5}\\.pht_id = xrf_[a-z0-9]{5}\\.xref_pht_id INNER JOIN advert adv_[a-z0-9]{5} ON adv_[a-z0-9]{5}\\.adv_id = xrf_[a-z0-9]{5}\\.xref_adv_id WHERE adv_[a-z0-9]{5}\\.adv_id = adv_res\\.adv_id\\)\\)\\) FROM \\(SELECT \\* FROM advert adv  LIMIT 2\\) adv_res/ui";
 
         $sql = $builder->jsonArray();
-        $this->assertEquals($expected, $sql);
+        $this->assertRegExp($expected, $sql->getSql());
     }
 
     /**
@@ -314,14 +325,14 @@ class QueryBuilderTest extends TestCase
             ->addMap($table, 'adv_id', 'id')
             ->addMap($table, 'adv_type', 'type');
 
-        $builder = new QueryBuilder($table, new FieldWrapper($mapping));
+        $builder = new QueryBuilder($table, new FieldWrapper($mapping), $this->tableManager);
         $builder
             ->setOffset(2)
             ->setLimit(2);
 
-        $expected = "SELECT JSON_ARRAYAGG(JSON_OBJECT('id',adv_res.adv_id,'type',adv_res.adv_type,'page',(SELECT JSON_OBJECT('id',pge.pge_id,'url',pge.pge_url) FROM page pge WHERE pge.pge_id = adv_res.adv_page LIMIT 1))) FROM (SELECT * FROM advert adv  LIMIT 2 OFFSET 2) adv_res";
+        $expected = "/SELECT JSON_ARRAYAGG\\(JSON_OBJECT\\('id',adv_res\\.adv_id,'type',adv_res\\.adv_type,'page',\\(SELECT JSON_OBJECT\\('id',pge_[a-z0-9]{5}\\.pge_id,'url',pge_[a-z0-9]{5}\\.pge_url\\) FROM page pge_[a-z0-9]{5} WHERE pge_[a-z0-9]{5}\\.pge_id = adv_res\\.adv_page LIMIT 1\\)\\)\\) FROM \\(SELECT \\* FROM advert adv  LIMIT 2 OFFSET 2\\) adv_res/ui";
 
         $sql = $builder->jsonArray();
-        $this->assertEquals($expected, $sql->getSql());
+        $this->assertRegExp($expected, $sql->getSql());
     }
 }
