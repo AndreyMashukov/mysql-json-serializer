@@ -47,7 +47,7 @@ class QueryBuilderTest extends TestCase
         $builder = new QueryBuilder($table, new FieldWrapper($mapping), $this->tableManager);
         $sql     = $builder->jsonArray();
         $this->assertEquals(
-            "SELECT JSON_ARRAYAGG(JSON_OBJECT('my_id',alias_res.id,'my_field_name',alias_res.field)) FROM (SELECT * FROM test_table alias ) alias_res",
+            "SELECT JSON_ARRAYAGG(JSON_OBJECT('my_id',alias_res.id,'my_field_name',alias_res.field)) FROM (SELECT DISTINCT alias.* FROM test_table alias ) alias_res",
             $sql->getSql()
         );
     }
@@ -83,7 +83,7 @@ class QueryBuilderTest extends TestCase
             ->setOffset(2)
             ->setLimit(1);
 
-        $expected = "/SELECT JSON_ARRAYAGG\\(JSON_OBJECT\\('id',est_res\\.est_id,'name',est_res\\.est_name,'advert_groups',\\(SELECT JSON_ARRAYAGG\\(JSON_OBJECT\\('id',adg_[a-z0-9]{5}\\.adg_id,'name',adg_[a-z0-9]{5}\\.adg_name\\)\\) FROM advert_group adg_[a-z0-9]{5} INNER JOIN estate est_[a-z0-9]{5} ON est_[a-z0-9]{5}\\.est_id = adg_[a-z0-9]{5}\\.adg_estate WHERE est_[a-z0-9]{5}\\.est_id = est_res\\.est_id\\)\\)\\) FROM \\(SELECT \\* FROM estate est  LIMIT 1 OFFSET 2\\) est_res/ui"
+        $expected = "/SELECT JSON_ARRAYAGG\\(JSON_OBJECT\\('id',est_res\\.est_id,'name',est_res\\.est_name,'advert_groups',\\(SELECT JSON_ARRAYAGG\\(JSON_OBJECT\\('id',adg_[a-z0-9]{5}\\.adg_id,'name',adg_[a-z0-9]{5}\\.adg_name\\)\\) FROM advert_group adg_[a-z0-9]{5} INNER JOIN estate est_[a-z0-9]{5} ON est_[a-z0-9]{5}\\.est_id = adg_[a-z0-9]{5}\\.adg_estate WHERE est_[a-z0-9]{5}\\.est_id = est_res\\.est_id\\)\\)\\) FROM \\(SELECT DISTINCT est\\.\\* FROM estate est  LIMIT 1 OFFSET 2\\) est_res/ui"
         ;
 
         $sql = $builder->jsonArray();
@@ -122,7 +122,7 @@ class QueryBuilderTest extends TestCase
             ->setOffset(2)
             ->setLimit(2);
 
-        $expected = "/SELECT JSON_ARRAYAGG\\(JSON_OBJECT\\('id',adg_res\\.adg_id,'name',adg_res\\.adg_name,'estate',\\(SELECT JSON_OBJECT\\('id',est_[a-z0-9]{5}\\.est_id,'name',est_[a-z0-9]{5}\\.est_name\\) FROM estate est_[a-z0-9]{5} WHERE est_[a-z0-9]{5}\\.est_id = adg_res\\.adg_estate LIMIT 1\\)\\)\\) FROM \\(SELECT \\* FROM advert_group adg  LIMIT 2 OFFSET 2\\) adg_res/ui";
+        $expected = "/SELECT JSON_ARRAYAGG\\(JSON_OBJECT\\('id',adg_res\\.adg_id,'name',adg_res\\.adg_name,'estate',\\(SELECT JSON_OBJECT\\('id',est_[a-z0-9]{5}\\.est_id,'name',est_[a-z0-9]{5}\\.est_name\\) FROM estate est_[a-z0-9]{5} WHERE est_[a-z0-9]{5}\\.est_id = adg_res\\.adg_estate LIMIT 1\\)\\)\\) FROM \\(SELECT DISTINCT adg\\.\\* FROM advert_group adg  LIMIT 2 OFFSET 2\\) adg_res/ui";
 
         $sql = $builder->jsonArray();
         $this->assertRegExp($expected, $sql->getSql());
@@ -169,7 +169,7 @@ class QueryBuilderTest extends TestCase
             ->setOffset(2)
             ->setLimit(2);
 
-        $expected = "/SELECT JSON_ARRAYAGG\\(JSON_OBJECT\\('id',adv_res\\.adv_id,'type',adv_res\\.adv_type,'address',\\(SELECT JSON_OBJECT\\('id',adr_[a-z0-9]{5}\\.adr_id,'house',\\(SELECT JSON_OBJECT\\('id',hou_[a-z0-9]{5}\\.hou_id,'zip_code',hou_[a-z0-9]{5}\\.hou_zip\\) FROM house hou_[a-z0-9]{5} WHERE hou_[a-z0-9]{5}\\.hou_id = adr_[a-z0-9]{5}\\.adr_house LIMIT 1\\)\\) FROM address adr_[a-z0-9]{5} WHERE adr_[a-z0-9]{5}\\.adr_id = adv_res\\.adv_address LIMIT 1\\)\\)\\) FROM \\(SELECT \\* FROM advert adv  INNER JOIN contact cnt ON cnt\\.cnt_type = :type AND adv\\.adv_contact = cnt\\.cnt_id LIMIT 2 OFFSET 2\\) adv_res/ui";
+        $expected = "/SELECT JSON_ARRAYAGG\\(JSON_OBJECT\\('id',adv_res\\.adv_id,'type',adv_res\\.adv_type,'address',\\(SELECT JSON_OBJECT\\('id',adr_[a-z0-9]{5}\\.adr_id,'house',\\(SELECT JSON_OBJECT\\('id',hou_[a-z0-9]{5}\\.hou_id,'zip_code',hou_[a-z0-9]{5}\\.hou_zip\\) FROM house hou_[a-z0-9]{5} WHERE hou_[a-z0-9]{5}\\.hou_id = adr_[a-z0-9]{5}\\.adr_house LIMIT 1\\)\\) FROM address adr_[a-z0-9]{5} WHERE adr_[a-z0-9]{5}\\.adr_id = adv_res\\.adv_address LIMIT 1\\)\\)\\) FROM \\(SELECT DISTINCT adv\\.\\* FROM advert adv  INNER JOIN contact cnt ON cnt\\.cnt_type = :type AND adv\\.adv_contact = cnt\\.cnt_id LIMIT 2 OFFSET 2\\) adv_res/ui";
 
         $sql = $builder->jsonArray();
         $this->assertRegExp($expected, $sql->getSql());
@@ -233,7 +233,7 @@ class QueryBuilderTest extends TestCase
         ;
 
         $params   = $builder->getParameters();
-        $expected = "/SELECT JSON_ARRAYAGG\\(JSON_OBJECT\\('id',adv_res\\.adv_id,'type',adv_res\\.adv_type,'address',\\(SELECT JSON_OBJECT\\('id',adr_[a-z0-9]{5}\\.adr_id,'house',\\(SELECT JSON_OBJECT\\('id',hou_[a-z0-9]{5}\\.hou_id,'zip_code',hou_[a-z0-9]{5}\\.hou_zip\\) FROM house hou_[a-z0-9]{5} WHERE hou_[a-z0-9]{5}\\.hou_id = adr_[a-z0-9]{5}\\.adr_house LIMIT 1\\)\\) FROM address adr_[a-z0-9]{5} WHERE adr_[a-z0-9]{5}\\.adr_id = adv_res.adv_address LIMIT 1\\)\\)\\) FROM \\(SELECT \\* FROM advert adv  INNER JOIN contact cnt ON cnt\\.cnt_type = :type AND adv\\.adv_contact = cnt\\.cnt_id INNER JOIN address adr ON adv\\.adv_address = adr\\.adr_id INNER JOIN house hou ON hou\\.hou_zip > :minZip AND hou\\.hou_id = adr\\.adr_house WHERE adv_id >= :minId AND adv_id <= :maxId OR adv_id = :id OR adv_id = :second GROUP BY adv\\.adv_id ORDER BY adv\\.adv_id DESC LIMIT 2 OFFSET 2\\) adv_res/ui";
+        $expected = "/SELECT JSON_ARRAYAGG\\(JSON_OBJECT\\('id',adv_res\\.adv_id,'type',adv_res\\.adv_type,'address',\\(SELECT JSON_OBJECT\\('id',adr_[a-z0-9]{5}\\.adr_id,'house',\\(SELECT JSON_OBJECT\\('id',hou_[a-z0-9]{5}\\.hou_id,'zip_code',hou_[a-z0-9]{5}\\.hou_zip\\) FROM house hou_[a-z0-9]{5} WHERE hou_[a-z0-9]{5}\\.hou_id = adr_[a-z0-9]{5}\\.adr_house LIMIT 1\\)\\) FROM address adr_[a-z0-9]{5} WHERE adr_[a-z0-9]{5}\\.adr_id = adv_res.adv_address LIMIT 1\\)\\)\\) FROM \\(SELECT DISTINCT adv\\.\\* FROM advert adv  INNER JOIN contact cnt ON cnt\\.cnt_type = :type AND adv\\.adv_contact = cnt\\.cnt_id INNER JOIN address adr ON adv\\.adv_address = adr\\.adr_id INNER JOIN house hou ON hou\\.hou_zip > :minZip AND hou\\.hou_id = adr\\.adr_house WHERE adv_id >= :minId AND adv_id <= :maxId OR adv_id = :id OR adv_id = :second GROUP BY adv\\.adv_id ORDER BY adv\\.adv_id DESC LIMIT 2 OFFSET 2\\) adv_res/ui";
 
         $expectedParams = [
             'type'   => 'owner',
@@ -292,7 +292,7 @@ class QueryBuilderTest extends TestCase
 
         $advert->addManyToManyField($photo, 'photos', $strategy);
 
-        $expected = "/SELECT JSON_ARRAYAGG\\(JSON_OBJECT\\('id',adv_res\\.adv_id,'type',adv_res\\.adv_type,'photos',\\(SELECT JSON_ARRAYAGG\\(JSON_OBJECT\\('id',pht_[a-z0-9]{5}\\.pht_id,'hash',pht_[a-z0-9]{5}\\.pht_hash\\)\\) FROM photo pht_[a-z0-9]{5}  INNER JOIN photo_xref xrf_[a-z0-9]{5} ON pht_[a-z0-9]{5}\\.pht_id = xrf_[a-z0-9]{5}\\.xref_pht_id INNER JOIN advert adv_[a-z0-9]{5} ON adv_[a-z0-9]{5}\\.adv_id = xrf_[a-z0-9]{5}\\.xref_adv_id WHERE adv_[a-z0-9]{5}\\.adv_id = adv_res\\.adv_id\\)\\)\\) FROM \\(SELECT \\* FROM advert adv  LIMIT 2\\) adv_res/ui";
+        $expected = "/SELECT JSON_ARRAYAGG\\(JSON_OBJECT\\('id',adv_res\\.adv_id,'type',adv_res\\.adv_type,'photos',\\(SELECT JSON_ARRAYAGG\\(JSON_OBJECT\\('id',pht_[a-z0-9]{5}\\.pht_id,'hash',pht_[a-z0-9]{5}\\.pht_hash\\)\\) FROM photo pht_[a-z0-9]{5} INNER JOIN photo_xref xrf_[a-z0-9]{5} ON pht_[a-z0-9]{5}\\.pht_id = xrf_[a-z0-9]{5}\\.xref_pht_id INNER JOIN advert adv_[a-z0-9]{5} ON adv_[a-z0-9]{5}\\.adv_id = xrf_[a-z0-9]{5}\\.xref_adv_id WHERE adv_[a-z0-9]{5}\\.adv_id = adv_res\\.adv_id\\)\\)\\) FROM \\(SELECT DISTINCT adv\\.\\* FROM advert adv  LIMIT 2\\) adv_res/ui";
 
         $sql = $builder->jsonArray();
         $this->assertRegExp($expected, $sql->getSql());
@@ -330,7 +330,7 @@ class QueryBuilderTest extends TestCase
             ->setOffset(2)
             ->setLimit(2);
 
-        $expected = "/SELECT JSON_ARRAYAGG\\(JSON_OBJECT\\('id',adv_res\\.adv_id,'type',adv_res\\.adv_type,'page',\\(SELECT JSON_OBJECT\\('id',pge_[a-z0-9]{5}\\.pge_id,'url',pge_[a-z0-9]{5}\\.pge_url\\) FROM page pge_[a-z0-9]{5} WHERE pge_[a-z0-9]{5}\\.pge_id = adv_res\\.adv_page LIMIT 1\\)\\)\\) FROM \\(SELECT \\* FROM advert adv  LIMIT 2 OFFSET 2\\) adv_res/ui";
+        $expected = "/SELECT JSON_ARRAYAGG\\(JSON_OBJECT\\('id',adv_res\\.adv_id,'type',adv_res\\.adv_type,'page',\\(SELECT JSON_OBJECT\\('id',pge_[a-z0-9]{5}\\.pge_id,'url',pge_[a-z0-9]{5}\\.pge_url\\) FROM page pge_[a-z0-9]{5} WHERE pge_[a-z0-9]{5}\\.pge_id = adv_res\\.adv_page LIMIT 1\\)\\)\\) FROM \\(SELECT DISTINCT adv\\.\\* FROM advert adv  LIMIT 2 OFFSET 2\\) adv_res/ui";
 
         $sql = $builder->jsonArray();
         $this->assertRegExp($expected, $sql->getSql());

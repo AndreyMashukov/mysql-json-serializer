@@ -63,7 +63,7 @@ class QueryBuilder
             . ' '
             . "JSON_ARRAYAGG({$this->wrapper->select($this->table, '_res')})"
             . ' '
-            . "FROM (SELECT * FROM {$this->table->getName()} {$this->table->getAlias()}"
+            . "FROM (SELECT DISTINCT {$this->table->getAlias()}.* FROM {$this->table->getName()} {$this->table->getAlias()}"
             . ' '
             . $this->getMainSql()
             . $this->getLimit()
@@ -89,7 +89,7 @@ class QueryBuilder
 
     private function getCountSql(): string
     {
-        return "SELECT COUNT({$this->table->getAlias()}_paginate.{$this->table->getIdField()}) FROM {$this->table->getName()} {$this->table->getAlias()}_paginate" . $this->getMainSql();
+        return "(SELECT COUNT(DISTINCT {$this->table->getAlias()}.{$this->table->getIdField()}) FROM {$this->table->getName()} {$this->table->getAlias()}" . $this->getMainSql() . ')';
     }
 
     /**
@@ -123,7 +123,7 @@ class QueryBuilder
 
     public function orderBy(string $field, string $type): self
     {
-        $this->orderBy = [$field, $type];
+        $this->orderBy[] = [$field, $type];
 
         return $this;
     }
@@ -159,7 +159,16 @@ class QueryBuilder
             return '';
         }
 
-        return ' ORDER BY ' . $this->orderBy[0] . ' ' . $this->orderBy[1];
+        $result = ' ORDER BY';
+        $parts  = [];
+
+        foreach ($this->orderBy as $item) {
+            $parts[] = ' ' . $item[0] . ' ' . $item[1];
+        }
+
+        $result .= \implode(',', $parts);
+
+        return $result;
     }
 
     private function getGroupBy(): string

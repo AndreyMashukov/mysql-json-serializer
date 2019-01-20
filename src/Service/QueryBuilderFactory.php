@@ -35,6 +35,6 @@ class QueryBuilderFactory
             throw new \RuntimeException('Table is not on control. Please add @Table annotation.');
         }
 
-        return new QueryBuilder($table, $this->fieldWrapper);
+        return new QueryBuilder($table, $this->fieldWrapper, $this->tableManager);
     }
 }

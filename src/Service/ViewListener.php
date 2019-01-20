@@ -6,6 +6,7 @@ use Doctrine\ORM\EntityManager;
 use Mash\MysqlJsonSerializer\QueryBuilder\SQL\SQL;
 use Symfony\Bridge\Doctrine\RegistryInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\GetResponseForControllerResultEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 
@@ -47,6 +48,6 @@ class ViewListener implements EventSubscriberInterface
         $query->execute($result->getParameters());
         $result = $query->fetchAll(\PDO::FETCH_COLUMN);
 
-        $event->setControllerResult(\json_decode($result[0], true));
+        $event->setResponse(new Response($result[0], Response::HTTP_OK));
     }
 }
