@@ -2,6 +2,7 @@
 
 namespace Mash\MysqlJsonSerializer\Wrapper;
 
+use Mash\MysqlJsonSerializer\Annotation\Expose;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\Field;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\FieldCollection;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\ManyToManyField;
@@ -30,17 +31,16 @@ class FieldWrapper
 
     private $mapping;
 
-    private $groups;
+    private $groups = Expose::DEFAULT_GROUPS;
 
     public function __construct(Mapping $mapping)
     {
         $this->mapping = $mapping;
     }
 
-    public function select(Table $table, array $groups, string $aliasSuffix): string
+    public function select(Table $table, string $aliasSuffix): string
     {
-        $this->cache  = [];
-        $this->groups = $groups;
+        $this->cache = [];
 
         return $this->wrap($table->getFieldList(), $aliasSuffix);
     }
@@ -137,12 +137,15 @@ class FieldWrapper
         $parent = $field->getParent();
         $table  = $field->getTable();
 
+        $uniqSuffix     = \mb_substr(\md5(\uniqid()), 0, 5);
+        $uniqSuffixMain = \mb_substr(\md5(\uniqid()), 0, 5);
+
         $where = $this->getWhere($table);
-        $sql   = "(SELECT JSON_ARRAYAGG({$this->wrap($field->getFieldList())}) "
-            . "FROM {$table->getName()} {$table->getAlias()} "
+        $sql   = "(SELECT JSON_ARRAYAGG({$this->wrap($field->getFieldList(), '_' . $uniqSuffixMain)}) "
+            . "FROM {$table->getName()} {$table->getAlias()}_{$uniqSuffixMain} "
             . $this->getJoins($table)
-            . "INNER JOIN {$parent->getName()} {$parent->getAlias()}_2 ON {$parent->getAlias()}_2.{$parent->getIdField()} = {$table->getAlias()}.{$field->getStrategy()} "
-            . "WHERE {$parent->getAlias()}_2.{$parent->getIdField()} = {$parent->getAlias()}{$aliasSuffix}.{$parent->getIdField()}"
+            . "INNER JOIN {$parent->getName()} {$parent->getAlias()}_{$uniqSuffix} ON {$parent->getAlias()}_{$uniqSuffix}.{$parent->getIdField()} = {$table->getAlias()}_{$uniqSuffixMain}.{$field->getStrategy()} "
+            . "WHERE {$parent->getAlias()}_{$uniqSuffix}.{$parent->getIdField()} = {$parent->getAlias()}{$aliasSuffix}.{$parent->getIdField()}"
             . ('' === $where ? '' : " AND ({$where})")
             . ')'
         ;
@@ -155,12 +158,14 @@ class FieldWrapper
         $child = $field->getChild();
         $table = $field->getTable();
 
+        $uniqSuffix = \mb_substr(\md5(\uniqid()), 0, 5);
+
         $where = $this->getWhere($table);
         $sql   = '('
-            . "SELECT {$this->wrap($field->getFieldList())} "
-            . "FROM {$table->getName()} {$table->getAlias()} "
+            . "SELECT {$this->wrap($field->getFieldList(), '_' . $uniqSuffix)} "
+            . "FROM {$table->getName()} {$table->getAlias()}_{$uniqSuffix} "
             . $this->getJoins($table)
-            . "WHERE {$table->getAlias()}.{$table->getIdField()} = {$child->getAlias()}{$aliasSuffix}.{$field->getStrategy()}"
+            . "WHERE {$table->getAlias()}_{$uniqSuffix}.{$table->getIdField()} = {$child->getAlias()}{$aliasSuffix}.{$field->getStrategy()}"
             . ('' === $where ? '' : " AND ({$where})")
             . ' '
             . 'LIMIT 1)'
@@ -174,12 +179,14 @@ class FieldWrapper
         $parent = $field->getParent();
         $table  = $field->getTable();
 
+        $uniqSuffix = \mb_substr(\md5(\uniqid()), 0, 5);
+
         $where = $this->getWhere($table);
         $sql   = '('
-            . "SELECT {$this->wrap($field->getFieldList())} "
-            . "FROM {$table->getName()} {$table->getAlias()} "
+            . "SELECT {$this->wrap($field->getFieldList(), '_' . $uniqSuffix)} "
+            . "FROM {$table->getName()} {$table->getAlias()}_{$uniqSuffix} "
             . $this->getJoins($table)
-            . "WHERE {$table->getAlias()}.{$table->getIdField()} = {$parent->getAlias()}{$aliasSuffix}.{$field->getStrategy()}"
+            . "WHERE {$table->getAlias()}_{$uniqSuffix}.{$table->getIdField()} = {$parent->getAlias()}{$aliasSuffix}.{$field->getStrategy()}"
             . ('' === $where ? '' : " AND ({$where})")
             . ' '
             . 'LIMIT 1)'
@@ -198,16 +205,20 @@ class FieldWrapper
         $collection     = $strategy->getSecond()->getFirst();
         $collectionXref = $strategy->getSecond()->getSecond();
 
+        $uniqSuffixRef  = \mb_substr(\md5(\uniqid()), 0, 5);
+        $uniqSuffix     = \mb_substr(\md5(\uniqid()), 0, 5);
+        $uniqSuffixMain = \mb_substr(\md5(\uniqid()), 0, 5);
+
         $where = $this->getWhere($table);
-        $sql   = "(SELECT JSON_ARRAYAGG({$this->wrap($field->getFieldList())}) "
-            . "FROM {$table->getName()} {$table->getAlias()} "
+        $sql   = "(SELECT JSON_ARRAYAGG({$this->wrap($field->getFieldList(), '_' . $uniqSuffixMain)}) "
+            . "FROM {$table->getName()} {$table->getAlias()}_{$uniqSuffixMain} "
             . $this->getJoins($table) . ' '
-            . "INNER JOIN {$collectionXref->getTable()->getName()} {$collectionXref->getTable()->getAlias()} "
-            . "ON {$collection->getTable()->getAlias()}.{$collection->getField()} = "
-            . "{$collectionXref->getTable()->getAlias()}.{$collectionXref->getField()} "
-            . "INNER JOIN {$main->getTable()->getName()} {$main->getTable()->getAlias()}_2 "
-            . "ON {$main->getTable()->getAlias()}_2.{$main->getTable()->getIdField()} = {$mainRef->getTable()->getAlias()}.{$mainRef->getField()} "
-            . "WHERE {$main->getTable()->getAlias()}_2.{$main->getTable()->getIdField()} = "
+            . "INNER JOIN {$collectionXref->getTable()->getName()} {$collectionXref->getTable()->getAlias()}_{$uniqSuffixRef} "
+            . "ON {$collection->getTable()->getAlias()}_{$uniqSuffixMain}.{$collection->getField()} = "
+            . "{$collectionXref->getTable()->getAlias()}_{$uniqSuffixRef}.{$collectionXref->getField()} "
+            . "INNER JOIN {$main->getTable()->getName()} {$main->getTable()->getAlias()}_{$uniqSuffix} "
+            . "ON {$main->getTable()->getAlias()}_{$uniqSuffix}.{$main->getTable()->getIdField()} = {$mainRef->getTable()->getAlias()}_{$uniqSuffixRef}.{$mainRef->getField()} "
+            . "WHERE {$main->getTable()->getAlias()}_{$uniqSuffix}.{$main->getTable()->getIdField()} = "
             . "{$main->getTable()->getAlias()}{$aliasSuffix}.{$main->getTable()->getIdField()}"
             . ('' === $where ? '' : " AND ({$where})")
             . ')'
@@ -231,5 +242,12 @@ class FieldWrapper
         }
 
         return self::UNLIMITED_DEPTH;
+    }
+
+    public function setGroups(array $groups): self
+    {
+        $this->groups = $groups;
+
+        return $this;
     }
 }

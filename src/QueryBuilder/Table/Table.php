@@ -181,6 +181,8 @@ class Table
         );
 
         $this->fieldList->add($field);
+
+        return $this;
     }
 
     /**

@@ -31,6 +31,7 @@
     },
     "require": {
         "php": ">=7.2",
+        "friendsofsymfony/rest-bundle": "^2.3",
         "sensio/framework-extra-bundle": "^5.1",
         "symfony/http-kernel": "^4.1",
         "symfony/event-dispatcher": "~3.4|~4.0",

@@ -2,12 +2,12 @@
 
 namespace Mash\MysqlJsonSerializer\QueryBuilder;
 
-use Mash\MysqlJsonSerializer\Annotation\Expose;
 use Mash\MysqlJsonSerializer\QueryBuilder\SQL\JsonArray;
 use Mash\MysqlJsonSerializer\QueryBuilder\SQL\JsonPagination;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\Table;
 use Mash\MysqlJsonSerializer\QueryBuilder\Traits\PartHelper;
 use Mash\MysqlJsonSerializer\QueryBuilder\Traits\TableManage;
+use Mash\MysqlJsonSerializer\Service\TableManager;
 use Mash\MysqlJsonSerializer\Wrapper\FieldWrapper;
 
 class QueryBuilder
@@ -32,13 +32,12 @@ class QueryBuilder
 
     private $groupBy;
 
-    private $groups = Expose::DEFAULT_GROUPS;
-
-    public function __construct(Table $table, FieldWrapper $fieldWrapper)
+    public function __construct(Table $table, FieldWrapper $fieldWrapper, TableManager $tableManager)
     {
-        $this->wrapper    = $fieldWrapper;
-        $this->table      = $table;
-        $this->parameters = [];
+        $this->wrapper      = $fieldWrapper;
+        $this->table        = $table;
+        $this->parameters   = [];
+        $this->tableManager = $tableManager;
     }
 
     public function jsonArray(): JsonArray
@@ -62,7 +61,7 @@ class QueryBuilder
 
         $sql = $this->operator
             . ' '
-            . "JSON_ARRAYAGG({$this->wrapper->select($this->table, $this->groups, '_res')})"
+            . "JSON_ARRAYAGG({$this->wrapper->select($this->table, '_res')})"
             . ' '
             . "FROM (SELECT * FROM {$this->table->getName()} {$this->table->getAlias()}"
             . ' '

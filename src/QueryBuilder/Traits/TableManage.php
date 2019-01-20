@@ -6,6 +6,7 @@ use Mash\MysqlJsonSerializer\QueryBuilder\Table\Condition\AndWhere;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\Condition\OrWhere;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\Join;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\Table;
+use Mash\MysqlJsonSerializer\Service\TableManager;
 
 trait TableManage
 {
@@ -13,6 +14,9 @@ trait TableManage
     protected $table;
 
     protected $parameters;
+
+    /** @var TableManager */
+    protected $tableManager;
 
     public function andWhere(string $condition): self
     {
@@ -31,14 +35,33 @@ trait TableManage
     /**
      * @SuppressWarnings(PHPMD.StaticAccess)
      *
-     * @param Table  $joinTable
-     * @param string $condition
+     * @param string|Table $joinTable
+     * @param string       $condition
      *
      * @return $this
      */
-    public function innerJoin(Table $joinTable, string $condition): self
+    public function innerJoin($joinTable, string $condition): self
     {
+        $joinTable = $this->getTableObject($joinTable);
+
         $this->table->addJoin(Join::create($joinTable, Join::TYPE_INNER, $condition));
+
+        return $this;
+    }
+
+    /**
+     * @SuppressWarnings(PHPMD.StaticAccess)
+     *
+     * @param string|Table $joinTable
+     * @param string       $condition
+     *
+     * @return $this
+     */
+    public function leftJoin($joinTable, string $condition): self
+    {
+        $joinTable = $this->getTableObject($joinTable);
+
+        $this->table->addJoin(Join::create($joinTable, Join::TYPE_LEFT, $condition));
 
         return $this;
     }
@@ -48,5 +71,22 @@ trait TableManage
         $this->parameters[$name] = $value;
 
         return $this;
+    }
+
+    private function getTableObject($joinTable): Table
+    {
+        if ($joinTable instanceof Table) {
+            return $joinTable;
+        }
+
+        if (!\is_string($joinTable)) {
+            throw new \InvalidArgumentException('JoinTable should be Class name string or Table object.');
+        }
+
+        if (!\class_exists($joinTable)) {
+            throw new \InvalidArgumentException('Class is not exists.');
+        }
+
+        return $this->tableManager->getTable($joinTable);
     }
 }

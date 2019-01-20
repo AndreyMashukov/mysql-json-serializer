@@ -8,7 +8,7 @@
 
 namespace Mash\MysqlJsonSerializer\QueryBuilder\SQL;
 
-class JsonPagination extends SQLProvider
+class JsonPagination extends SQL
 {
     private $sql;
 

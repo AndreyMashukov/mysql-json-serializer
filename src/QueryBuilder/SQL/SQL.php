@@ -2,7 +2,7 @@
 
 namespace Mash\MysqlJsonSerializer\QueryBuilder\SQL;
 
-abstract class SQLProvider implements SQLProviderInterface
+abstract class SQL implements SQLProviderInterface
 {
     protected $parameters;
 

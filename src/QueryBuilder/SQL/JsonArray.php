@@ -2,7 +2,7 @@
 
 namespace Mash\MysqlJsonSerializer\QueryBuilder\SQL;
 
-class JsonArray extends SQLProvider
+class JsonArray extends SQL
 {
     private $sql;
 
