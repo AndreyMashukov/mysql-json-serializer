@@ -32,6 +32,8 @@ class QueryBuilder
 
     private $groupBy;
 
+    private $select;
+
     public function __construct(Table $table, FieldWrapper $fieldWrapper, TableManager $tableManager)
     {
         $this->wrapper      = $fieldWrapper;
@@ -53,19 +55,29 @@ class QueryBuilder
         return new JsonPagination($this->getParameters(), $this->getSql(), $this->getCountSql(), $limit, $page);
     }
 
+    public function select(string $select): self
+    {
+        $this->select = $select;
+
+        return $this;
+    }
+
     private function getSql(): string
     {
         if (!$this->operator) {
             throw new \RuntimeException('You should set operator, use methods: select()'); // today we have only select
         }
 
-        $sql = $this->operator
+        $select = $this->select ?? "DISTINCT {$this->table->getAlias()}.*";
+        $sql    = $this->operator
             . ' '
             . "JSON_ARRAYAGG({$this->wrapper->select($this->table, '_res')})"
             . ' '
-            . "FROM (SELECT DISTINCT {$this->table->getAlias()}.* FROM {$this->table->getName()} {$this->table->getAlias()}"
+            . "FROM (SELECT {$select} FROM {$this->table->getName()} {$this->table->getAlias()}"
             . ' '
             . $this->getMainSql()
+            . $this->getGroupBy()
+            . $this->getOrderBy()
             . $this->getLimit()
             . $this->getOffset()
             . ') '
@@ -80,8 +92,6 @@ class QueryBuilder
         $where = $this->getWhere($this->table);
         $sql   = $this->getJoins($this->table)
             . ('' === $where ? '' : ' WHERE ' . $where)
-            . $this->getGroupBy()
-            . $this->getOrderBy()
         ;
 
         return $sql;
