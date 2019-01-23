@@ -271,7 +271,7 @@ class KernelListener implements EventSubscriberInterface
     /**
      * @param \ReflectionProperty $property
      *
-     * @return Expose|null
+     * @return null|Expose
      */
     private function getFieldExpose(\ReflectionProperty $property): ?Expose
     {
