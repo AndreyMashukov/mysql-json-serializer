@@ -20,6 +20,9 @@ class Expose extends ConfigurationAnnotation
     /** @var array */
     private $groups = self::DEFAULT_GROUPS;
 
+    /** @var null|string */
+    private $type;
+
     public function __construct(array $values)
     {
         parent::__construct($values);
@@ -57,6 +60,26 @@ class Expose extends ConfigurationAnnotation
     public function setGroups(array $groups): self
     {
         $this->groups = $groups;
+
+        return $this;
+    }
+
+    /**
+     * @return null|string
+     */
+    public function getType(): ?string
+    {
+        return $this->type;
+    }
+
+    /**
+     * @param string $type
+     *
+     * @return Expose
+     */
+    public function setType(string $type): self
+    {
+        $this->type = $type;
 
         return $this;
     }

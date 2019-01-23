@@ -27,6 +27,8 @@ class FieldWrapper
 
     public const ONE_TO_MANY_MAX_DEPTH = 1;
 
+    public const ONE_TO_ONE_MAX_DEPTH = 1;
+
     private $cache = [];
 
     private $mapping;
@@ -102,11 +104,29 @@ class FieldWrapper
         ++$this->cache[$key];
 
         if ($field instanceof SimpleField) {
-            return "'" . $this->mapping->getAlias($field) . "',"
-                . "{$field->getTable()->getAlias()}{$aliasSuffix}.{$field->getName()}";
+            return $this->wrapSimple($field, $aliasSuffix);
         }
 
         return "'" . $this->mapping->getAlias($field) . "'," . $this->subSelect($field, $aliasSuffix);
+    }
+
+    /**
+     * @param SimpleField $field
+     * @param string      $aliasSuffix
+     *
+     * @return string
+     */
+    private function wrapSimple(SimpleField $field, string $aliasSuffix): string
+    {
+        $type = $field->getType();
+
+        if ($type) {
+            return "'" . $this->mapping->getAlias($field)
+                . "'," . $type->convert($field->getName(), "{$field->getTable()->getAlias()}{$aliasSuffix}");
+        }
+
+        return "'" . $this->mapping->getAlias($field) . "',"
+            . "{$field->getTable()->getAlias()}{$aliasSuffix}.{$field->getName()}";
     }
 
     /**
@@ -227,6 +247,10 @@ class FieldWrapper
 
         if ($field instanceof OneToManyField) {
             return self::ONE_TO_MANY_MAX_DEPTH;
+        }
+
+        if ($field instanceof OneToOneField) {
+            return self::ONE_TO_ONE_MAX_DEPTH;
         }
 
         return self::UNLIMITED_DEPTH;
