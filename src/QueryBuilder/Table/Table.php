@@ -8,6 +8,7 @@ use Mash\MysqlJsonSerializer\QueryBuilder\Field\FieldCollection;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\Condition\Where;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\JoinStrategy\FieldStrategy;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\JoinStrategy\ReferenceStrategy;
+use Mash\MysqlJsonSerializer\Wrapper\Type\CustomTypeInterface;
 
 class Table
 {
@@ -86,23 +87,28 @@ class Table
     /**
      * @SuppressWarnings(PHPMD.StaticAccess)
      *
-     * @param string $name
-     * @param array  $serializeGroups
+     * @param string                   $name
+     * @param array                    $serializeGroups
+     * @param null|CustomTypeInterface $customType
      *
      * @return Table
      */
-    public function addSimpleField(string $name, array $serializeGroups = Expose::DEFAULT_GROUPS): self
+    public function addSimpleField(string $name, array $serializeGroups = Expose::DEFAULT_GROUPS, ?CustomTypeInterface $customType = null): self
     {
-        $this->fieldList->add(
-            Field::create(
-                $this,
-                $name,
-                Field::TYPE_SIMPLE,
-                null,
-                null,
-                $serializeGroups
-            )
+        $field = Field::create(
+            $this,
+            $name,
+            Field::TYPE_SIMPLE,
+            null,
+            null,
+            $serializeGroups
         );
+
+        if ($customType) {
+            $field->setType($customType);
+        }
+
+        $this->fieldList->add($field);
 
         return $this;
     }

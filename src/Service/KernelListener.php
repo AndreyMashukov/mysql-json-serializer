@@ -13,6 +13,7 @@ use Mash\MysqlJsonSerializer\QueryBuilder\Table\JoinStrategy\FieldStrategy;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\JoinStrategy\ReferenceStrategy;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\Table;
 use Mash\MysqlJsonSerializer\Wrapper\Mapping;
+use Mash\MysqlJsonSerializer\Wrapper\Type\CustomTypeInterface;
 use Symfony\Bridge\Doctrine\RegistryInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\KernelEvent;
@@ -239,6 +240,13 @@ class KernelListener implements EventSubscriberInterface
         }
     }
 
+    /**
+     * @param ClassMetadata    $metadata
+     * @param Table            $table
+     * @param \ReflectionClass $reflection
+     *
+     * @throws \ReflectionException
+     */
     private function fillMapping(ClassMetadata $metadata, Table $table, \ReflectionClass $reflection): void
     {
         foreach ($metadata->fieldMappings as $fieldMapping) {
@@ -255,10 +263,16 @@ class KernelListener implements EventSubscriberInterface
                 continue;
             }
 
-            $table->addSimpleField($fieldMapping['columnName'], $expose->getGroups());
+            $type = $this->getType($expose->getType());
+            $table->addSimpleField($fieldMapping['columnName'], $expose->getGroups(), $type);
         }
     }
 
+    /**
+     * @param \ReflectionProperty $property
+     *
+     * @return Expose|null
+     */
     private function getFieldExpose(\ReflectionProperty $property): ?Expose
     {
         $annotations = $this->reader->getPropertyAnnotations($property);
@@ -277,5 +291,31 @@ class KernelListener implements EventSubscriberInterface
     private function toSnake(string $name): string
     {
         return \ltrim(\mb_strtolower(\preg_replace('/[A-Z]([A-Z](?![a-z]))*/', '_$0', $name)), '_');
+    }
+
+    /**
+     * @param null|string $class
+     *
+     * @throws \ReflectionException
+     *
+     * @return null|CustomTypeInterface
+     */
+    private function getType(?string $class): ?CustomTypeInterface
+    {
+        if (!$class) {
+            return null;
+        }
+
+        if (!\class_exists($class)) {
+            throw new \InvalidArgumentException('Class: ' . $class . ', is not exists. Invalid custom type class.');
+        }
+
+        $reflection = new \ReflectionClass($class);
+
+        if (!$reflection->implementsInterface(CustomTypeInterface::class)) {
+            throw new \InvalidArgumentException('Class: ' . $class . ' is not instance of ' . CustomTypeInterface::class);
+        }
+
+        return new $class();
     }
 }
