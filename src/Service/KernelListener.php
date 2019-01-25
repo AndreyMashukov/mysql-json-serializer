@@ -98,7 +98,7 @@ class KernelListener implements EventSubscriberInterface
             $table     = new Table($metadata->getTableName(), $annotation->getAlias(), $idMapping['columnName']);
             $this->tableManager->addTable($table, $class);
 
-            $this->fillMapping($metadata, $table, $result['reflection']);
+            $this->fillMapping($metadata, $table, $result['reflection'], $annotation);
 
             if (0 === \count($metadata->associationMappings)) {
                 continue;
@@ -244,28 +244,60 @@ class KernelListener implements EventSubscriberInterface
      * @param ClassMetadata    $metadata
      * @param Table            $table
      * @param \ReflectionClass $reflection
+     * @param TableAnnotation  $annotation
      *
      * @throws \ReflectionException
      */
-    private function fillMapping(ClassMetadata $metadata, Table $table, \ReflectionClass $reflection): void
+    private function fillMapping(ClassMetadata $metadata, Table $table, \ReflectionClass $reflection, TableAnnotation $annotation = null): void
     {
         foreach ($metadata->fieldMappings as $fieldMapping) {
-            $name = $this->toSnake($fieldMapping['fieldName']);
-
-            $this->mapping->addMap($table, $fieldMapping['columnName'], $name);
-
-            $prop   = $reflection->getProperty($fieldMapping['fieldName']);
-            $expose = $this->getFieldExpose($prop);
-
-            if (!$expose) {
-                $table->addSimpleField($fieldMapping['columnName']);
-
-                continue;
-            }
-
-            $type = $this->getType($expose->getType());
-            $table->addSimpleField($fieldMapping['columnName'], $expose->getGroups(), $type);
+            $this->exposeField($table, $reflection, $fieldMapping['columnName'], $fieldMapping['fieldName']);
         }
+
+        if (!$annotation) {
+            return;
+        }
+
+        $map = $annotation->getMap();
+
+        if ([] === $map) {
+            return;
+        }
+
+        foreach ($map as $field => $alias) {
+            $this->exposeField($table, $reflection, $field, $alias);
+        }
+    }
+
+    /**
+     * @param Table            $table
+     * @param \ReflectionClass $reflection
+     * @param string           $fieldName
+     * @param string           $alias
+     *
+     * @throws \ReflectionException
+     */
+    private function exposeField(Table $table, \ReflectionClass $reflection, string $fieldName, string $alias)
+    {
+        $name = $this->toSnake($alias);
+
+        $this->mapping->addMap($table, $fieldName, $name);
+
+        if (!$reflection->hasProperty($alias)) {
+            return;
+        }
+
+        $prop   = $reflection->getProperty($alias);
+        $expose = $this->getFieldExpose($prop);
+
+        if (!$expose) {
+            $table->addSimpleField($fieldName);
+
+            return;
+        }
+
+        $type = $this->getType($expose->getType());
+        $table->addSimpleField($fieldName, $expose->getGroups(), $type);
     }
 
     /**
