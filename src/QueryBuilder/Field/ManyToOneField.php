@@ -7,20 +7,20 @@ use Mash\MysqlJsonSerializer\QueryBuilder\Table\Table;
 
 class ManyToOneField extends CollectionField implements RelationInterface
 {
-    private $child;
+    private $parent;
 
-    public function __construct(Table $table, string $name, Table $child, FieldStrategy $joinField)
+    public function __construct(Table $table, string $name, Table $parent, FieldStrategy $joinField)
     {
         parent::__construct($table, $name, $joinField);
 
-        $this->child = $child;
+        $this->parent = $parent;
     }
 
     /**
      * @return Table
      */
-    public function getChild(): Table
+    public function getParent(): Table
     {
-        return $this->child;
+        return $this->parent;
     }
 }

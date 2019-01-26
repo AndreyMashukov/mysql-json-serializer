@@ -81,8 +81,7 @@ class FieldWrapper
      */
     private function wrapField(Field $field, string $aliasSuffix = ''): string
     {
-        $table = $field->getTable();
-        $key   = "{$table->getAlias()}_{$field->getName()}";
+        $key = $this->getKey($field);
 
         $fieldGroups = $field->getGroups();
         $intersect   = \array_intersect($fieldGroups, $this->groups);
@@ -172,15 +171,15 @@ class FieldWrapper
 
     private function getManyToOne(ManyToOneField $field, string $aliasSuffix = ''): string
     {
-        $child = $field->getChild();
-        $table = $field->getTable();
+        $parent = $field->getParent();
+        $table  = $field->getTable();
 
         $uniqSuffix = \mb_substr(\md5(\uniqid()), 0, 5);
 
         $sql   = '('
             . "SELECT {$this->wrap($field->getFieldList(), '_' . $uniqSuffix)} "
             . "FROM {$table->getName()} {$table->getAlias()}_{$uniqSuffix} "
-            . "WHERE {$table->getAlias()}_{$uniqSuffix}.{$table->getIdField()} = {$child->getAlias()}{$aliasSuffix}.{$field->getStrategy()}"
+            . "WHERE {$table->getAlias()}_{$uniqSuffix}.{$table->getIdField()} = {$parent->getAlias()}{$aliasSuffix}.{$field->getStrategy()}"
             . ' '
             . 'LIMIT 1)'
         ;
@@ -261,5 +260,21 @@ class FieldWrapper
         $this->groups = $groups;
 
         return $this;
+    }
+
+    private function getKey(Field $field): string
+    {
+        $table = $field->getTable();
+        $base  = "{$table->getAlias()}_{$field->getName()}";
+
+        if ($field instanceof ManyToOneField) {
+            return "{$field->getParent()->getAlias()}_{$base}";
+        }
+
+        if ($field instanceof OneToOneField) {
+            return "{$field->getParent()->getAlias()}_{$base}";
+        }
+
+        return $base;
     }
 }
