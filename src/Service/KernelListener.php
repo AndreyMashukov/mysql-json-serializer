@@ -130,7 +130,12 @@ class KernelListener implements EventSubscriberInterface
                 $reflection  = new \ReflectionClass($table);
                 $refMetadata = $relations[$data['targetEntity']];
 
-                $prop   = $reflection->getProperty($data['fieldName']);
+                try {
+                    $prop = $reflection->getProperty($data['fieldName']);
+                } catch (\ReflectionException $exception) {
+                    $prop = $reflection->getParentClass()->getProperty($data['fieldName']);
+                }
+
                 $expose = $this->getFieldExpose($prop);
                 $groups = Expose::DEFAULT_GROUPS;
 
@@ -138,50 +143,59 @@ class KernelListener implements EventSubscriberInterface
                     $groups = $expose->getGroups();
                 }
 
-                if (ClassMetadata::ONE_TO_MANY === $data['type']) {
-                    $field = $refMetadata[$data['mappedBy']]['joinColumns'][0]['name'];
-
-                    $main->addOneToManyField($reference, $this->toSnake($data['fieldName']), new FieldStrategy($field), $groups);
-
-                    continue;
-                }
-
-                if (ClassMetadata::MANY_TO_ONE === $data['type']) {
-                    $field = $data['joinColumns'][0]['name'];
-
-                    $main->addManyToOneField($reference, $this->toSnake($data['fieldName']), new FieldStrategy($field), $groups);
-
-                    continue;
-                }
-
-                if (ClassMetadata::MANY_TO_MANY === $data['type']) {
-                    if ([] === $data['joinTable']) {
-                        continue;
-                    }
-
-                    $joinTable = new Table($data['joinTable']['name'], $data['joinTable']['name'] . '_mtm');
-                    $strategy  = new ReferenceStrategy(
-                        new Reference(
-                            new Pair($this->tableManager->getTable($data['sourceEntity']), 'adv_id'),
-                            new Pair($joinTable, $data['joinTable']['joinColumns'][0]['name'])
-                        ),
-                        new Reference(
-                            new Pair($reference, $reference->getIdField()),
-                            new Pair($joinTable, $data['joinTable']['inverseJoinColumns'][0]['name'])
-                        )
-                    );
-
-                    $main->addManyToManyField($reference, $this->toSnake($data['fieldName']), $strategy, $groups);
-
-                    continue;
-                }
-
-                // ONE TO ONE
-                $field = $data['joinColumns'][0]['name'];
-
-                $main->addOneToOneField($reference, $this->toSnake($data['fieldName']), new FieldStrategy($field), $groups);
+                $this->createField($main, $data, $reference, $groups, $refMetadata);
             }
         }
+    }
+
+    private function createField(Table $main, array $data, Table $reference, array $groups, array $refMetadata)
+    {
+        if (ClassMetadata::ONE_TO_MANY === $data['type']) {
+            $field = $refMetadata[$data['mappedBy']]['joinColumns'][0]['name'];
+
+            $main->addOneToManyField($reference, $this->toSnake($data['fieldName']), new FieldStrategy($field), $groups);
+
+            return;
+        }
+
+        if (ClassMetadata::MANY_TO_ONE === $data['type']) {
+            $field = $data['joinColumns'][0]['name'];
+
+            $main->addManyToOneField($reference, $this->toSnake($data['fieldName']), new FieldStrategy($field), $groups);
+
+            return;
+        }
+
+        if (ClassMetadata::MANY_TO_MANY === $data['type']) {
+            if ([] === $data['joinTable']) {
+                return;
+            }
+
+            $joinTable = new Table($data['joinTable']['name'], $data['joinTable']['name'] . '_mtm');
+            $strategy  = new ReferenceStrategy(
+                new Reference(
+                    new Pair($this->tableManager->getTable($data['sourceEntity']), 'adv_id'),
+                    new Pair($joinTable, $data['joinTable']['joinColumns'][0]['name'])
+                ),
+                new Reference(
+                    new Pair($reference, $reference->getIdField()),
+                    new Pair($joinTable, $data['joinTable']['inverseJoinColumns'][0]['name'])
+                )
+            );
+
+            $main->addManyToManyField($reference, $this->toSnake($data['fieldName']), $strategy, $groups);
+
+            return;
+        }
+
+        if (!isset($data['joinColumns'][0])) {
+            return;
+        }
+
+        // ONE TO ONE
+        $field = $data['joinColumns'][0]['name'];
+
+        $main->addOneToOneField($reference, $this->toSnake($data['fieldName']), new FieldStrategy($field), $groups);
     }
 
     private function typeFilter(array $data): \Generator

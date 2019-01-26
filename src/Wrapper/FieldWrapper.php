@@ -160,11 +160,11 @@ class FieldWrapper
         $uniqSuffix     = \mb_substr(\md5(\uniqid()), 0, 5);
         $uniqSuffixMain = \mb_substr(\md5(\uniqid()), 0, 5);
 
-        $sql   = "(SELECT JSON_ARRAYAGG({$this->wrap($field->getFieldList(), '_' . $uniqSuffixMain)}) "
+        $sql   = "IFNULL((SELECT JSON_ARRAYAGG({$this->wrap($field->getFieldList(), '_' . $uniqSuffixMain)}) "
             . "FROM {$table->getName()} {$table->getAlias()}_{$uniqSuffixMain} "
             . "INNER JOIN {$parent->getName()} {$parent->getAlias()}_{$uniqSuffix} ON {$parent->getAlias()}_{$uniqSuffix}.{$parent->getIdField()} = {$table->getAlias()}_{$uniqSuffixMain}.{$field->getStrategy()} "
             . "WHERE {$parent->getAlias()}_{$uniqSuffix}.{$parent->getIdField()} = {$parent->getAlias()}{$aliasSuffix}.{$parent->getIdField()}"
-            . ')'
+            . '), JSON_ARRAY())'
         ;
 
         return $sql;
@@ -220,7 +220,7 @@ class FieldWrapper
         $uniqSuffix     = \mb_substr(\md5(\uniqid()), 0, 5);
         $uniqSuffixMain = \mb_substr(\md5(\uniqid()), 0, 5);
 
-        $sql   = "(SELECT JSON_ARRAYAGG({$this->wrap($field->getFieldList(), '_' . $uniqSuffixMain)}) "
+        $sql   = "IFNULL((SELECT JSON_ARRAYAGG({$this->wrap($field->getFieldList(), '_' . $uniqSuffixMain)}) "
             . "FROM {$table->getName()} {$table->getAlias()}_{$uniqSuffixMain} "
             . "INNER JOIN {$collectionXref->getTable()->getName()} {$collectionXref->getTable()->getAlias()}_{$uniqSuffixRef} "
             . "ON {$collection->getTable()->getAlias()}_{$uniqSuffixMain}.{$collection->getField()} = "
@@ -229,7 +229,7 @@ class FieldWrapper
             . "ON {$main->getTable()->getAlias()}_{$uniqSuffix}.{$main->getTable()->getIdField()} = {$mainRef->getTable()->getAlias()}_{$uniqSuffixRef}.{$mainRef->getField()} "
             . "WHERE {$main->getTable()->getAlias()}_{$uniqSuffix}.{$main->getTable()->getIdField()} = "
             . "{$main->getTable()->getAlias()}{$aliasSuffix}.{$main->getTable()->getIdField()}"
-            . ')'
+            . '), JSON_ARRAY())'
         ;
 
         return $sql;
