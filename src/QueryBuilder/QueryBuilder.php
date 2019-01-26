@@ -3,6 +3,7 @@
 namespace Mash\MysqlJsonSerializer\QueryBuilder;
 
 use Mash\MysqlJsonSerializer\QueryBuilder\SQL\JsonArray;
+use Mash\MysqlJsonSerializer\QueryBuilder\SQL\JsonObject;
 use Mash\MysqlJsonSerializer\QueryBuilder\SQL\JsonPagination;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\Table;
 use Mash\MysqlJsonSerializer\QueryBuilder\Traits\PartHelper;
@@ -42,9 +43,17 @@ class QueryBuilder
         $this->tableManager = $tableManager;
     }
 
+    public function jsonObject(int $id)
+    {
+        $this->andWhere("{$this->table->getAlias()}.{$this->table->getIdField()} = :id");
+        $this->setParameter('id', $id);
+
+        return new JsonObject($this->parameters, $this->getSql(false));
+    }
+
     public function jsonArray(): JsonArray
     {
-        return new JsonArray($this->getParameters(), $this->getSql());
+        return new JsonArray($this->getParameters(), $this->getSql(true));
     }
 
     public function jsonPagination(int $page, int $limit)
@@ -52,7 +61,7 @@ class QueryBuilder
         $this->setLimit($limit);
         $this->setOffset(($page - 1) * $limit);
 
-        return new JsonPagination($this->getParameters(), $this->getSql(), $this->getCountSql(), $limit, $page);
+        return new JsonPagination($this->getParameters(), $this->getSql(true), $this->getCountSql(), $limit, $page);
     }
 
     public function select(string $select): self
@@ -62,16 +71,22 @@ class QueryBuilder
         return $this;
     }
 
-    private function getSql(): string
+    private function getSql(bool $asArray): string
     {
         if (!$this->operator) {
             throw new \RuntimeException('You should set operator, use methods: select()'); // today we have only select
         }
 
+        $base = "JSON_ARRAYAGG({$this->wrapper->select($this->table, '_res')})";
+
+        if (!$asArray) {
+            $base = "{$this->wrapper->select($this->table, '_res')}";
+        }
+
         $select = $this->select ?? "DISTINCT {$this->table->getAlias()}.*";
         $sql    = $this->operator
             . ' '
-            . "JSON_ARRAYAGG({$this->wrapper->select($this->table, '_res')})"
+            . $base
             . ' '
             . "FROM (SELECT {$select} FROM {$this->table->getName()} {$this->table->getAlias()}"
             . ' '
