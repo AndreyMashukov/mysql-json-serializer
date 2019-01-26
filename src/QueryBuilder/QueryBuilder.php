@@ -77,10 +77,11 @@ class QueryBuilder
             throw new \RuntimeException('You should set operator, use methods: select()'); // today we have only select
         }
 
-        $base = "JSON_ARRAYAGG({$this->wrapper->select($this->table, '_res')})";
+        $wrapped = $this->wrapper->select($this->table, '_res');
+        $base    = "JSON_ARRAYAGG({$wrapped})";
 
         if (!$asArray) {
-            $base = "{$this->wrapper->select($this->table, '_res')}";
+            $base = "{$wrapped}";
         }
 
         $select = $this->select ?? "DISTINCT {$this->table->getAlias()}.*";
