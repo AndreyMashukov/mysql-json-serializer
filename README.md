@@ -50,7 +50,7 @@ $sql = $builder->jsonArray();
 ```
 
 ```sql
-SELECT JSON_ARRAYAGG(JSON_OBJECT('id',est_res.est_id,'name',est_res.est_name,'advert_groups',(SELECT JSON_ARRAYAGG(JSON_OBJECT('id',adg.adg_id,'name',adg.adg_name)) FROM advert_group adg INNER JOIN estate est_2 ON est_2.est_id = adg.adg_estate WHERE est_2.est_id = est_res.est_id))) FROM (SELECT * FROM estate est  LIMIT 1 OFFSET 2) est_res
+SELECT JSON_ARRAYAGG(JSON_OBJECT('id',est_res.est_id,'name',est_res.est_name,'advert_groups',IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id',adg_6dfcb.adg_id,'name',adg_6dfcb.adg_name)) FROM advert_group adg_6dfcb INNER JOIN estate est_6dd72 ON est_6dd72.est_id = adg_6dfcb.adg_estate WHERE est_6dd72.est_id = est_res.est_id), JSON_ARRAY()))) FROM (SELECT DISTINCT est.* FROM estate est  LIMIT 1 OFFSET 2) est_res;
 ```
 
 `result`
@@ -95,7 +95,7 @@ $sql = $builder->jsonArray();
 ```
 
 ```sql
-SELECT JSON_ARRAYAGG(JSON_OBJECT('id',adg_res.adg_id,'name',adg_res.adg_name,'estate',(SELECT JSON_OBJECT('id',est.est_id,'name',est.est_name) FROM estate est WHERE est.est_id = adg_res.adg_estate LIMIT 1))) FROM (SELECT * FROM advert_group adg  LIMIT 2 OFFSET 2) adg_res;
+SELECT JSON_ARRAYAGG(JSON_OBJECT('id',adg_res.adg_id,'name',adg_res.adg_name,'estate',(SELECT JSON_OBJECT('id',est_3364c.est_id,'name',est_3364c.est_name) FROM estate est_3364c WHERE est_3364c.est_id = adg_res.adg_estate LIMIT 1))) FROM (SELECT DISTINCT adg.* FROM advert_group adg  LIMIT 2 OFFSET 2) adg_res;
 ```
 `result`
 ```json
@@ -154,7 +154,7 @@ $sql = $builder->jsonArray();
 ```
 
 ```sql
-SELECT JSON_ARRAYAGG(JSON_OBJECT('id',adv_res.adv_id,'type',adv_res.adv_type,'photos',(SELECT JSON_ARRAYAGG(JSON_OBJECT('id',pht.pht_id,'hash',pht.pht_hash)) FROM photo pht  INNER JOIN photo_xref xrf ON pht.pht_id = xrf.xref_pht_id INNER JOIN advert adv_2 ON adv_2.adv_id = xrf.xref_adv_id WHERE adv_2.adv_id = adv_res.adv_id))) FROM (SELECT * FROM advert adv  LIMIT 2) adv_res
+SELECT JSON_ARRAYAGG(JSON_OBJECT('id',adv_res.adv_id,'type',adv_res.adv_type,'photos',IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT('id',pht_58725.pht_id,'hash',pht_58725.pht_hash)) FROM photo pht_58725 INNER JOIN photo_xref xrf_c84ca ON pht_58725.pht_id = xrf_c84ca.xref_pht_id INNER JOIN advert adv_251cf ON adv_251cf.adv_id = xrf_c84ca.xref_adv_id WHERE adv_251cf.adv_id = adv_res.adv_id), JSON_ARRAY()))) FROM (SELECT DISTINCT adv.* FROM advert adv  LIMIT 2) adv_res;
 ```
 `result`
 ```json
@@ -199,7 +199,7 @@ $expected = "SELECT JSON_ARRAYAGG(JSON_OBJECT('id',adv_res.adv_id,'type',adv_res
 $sql = $builder->jsonArray();
 ```
 ```sql
-SELECT JSON_ARRAYAGG(JSON_OBJECT('id',adv_res.adv_id,'type',adv_res.adv_type,'page',(SELECT JSON_OBJECT('id',pge.pge_id,'url',pge.pge_url) FROM page pge WHERE pge.pge_id = adv_res.adv_page LIMIT 1))) FROM (SELECT * FROM advert adv  LIMIT 2 OFFSET 2) adv_res
+SELECT JSON_ARRAYAGG(JSON_OBJECT('id',adv_res.adv_id,'type',adv_res.adv_type,'page',(SELECT JSON_OBJECT('id',pge_761e0.pge_id,'url',pge_761e0.pge_url) FROM page pge_761e0 WHERE pge_761e0.pge_id = adv_res.adv_page LIMIT 1))) FROM (SELECT DISTINCT adv.* FROM advert adv  LIMIT 2 OFFSET 2) adv_res;
 ```
 `result`
 ```json
@@ -213,6 +213,10 @@ Add this to services.yaml:
 ```yaml
 # MySQL Json Serializer
 services:
+    Mash\MysqlJsonSerializer\Service\ControllerListener: ~
+
+    Mash\MysqlJsonSerializer\Service\ViewListener: ~
+
     Mash\MysqlJsonSerializer\Wrapper\Mapping: ~
 
     Mash\MysqlJsonSerializer\Wrapper\FieldWrapper: ~
@@ -223,3 +227,432 @@ services:
 
     Mash\MysqlJsonSerializer\Service\TableManager: ~
 ```
+
+#### Setup your Entities
+Below you will find information how to configure your entities for auto serialization
+
+```php
+<?php
+
+namespace App\Entity;
+
+use App\Entity\Location\City;
+use Doctrine\ORM\Mapping as ORM;
+use JMS\Serializer\Annotation as Serializer;
+use Mash\MysqlJsonSerializer\Annotation as MysqlJSON;
+use Mash\MysqlJsonSerializer\Annotation\Table;
+use Symfony\Component\Validator\Constraints as Assert;
+
+/**
+ * @ORM\Table(name="page", indexes={
+ *     @ORM\Index(columns={"pge_status"}),
+ *     @ORM\Index(columns={"pge_site"}),
+ * })
+ *
+ * @ORM\Entity(repositoryClass="App\Repository\PageRepository")
+ *
+ * @Serializer\ExclusionPolicy(Serializer\ExclusionPolicy::ALL)
+ *
+ * @Table(alias="pge")
+ */
+class Page implements LockedResourceInterface
+{
+    const STATUS_PENDING = 0;
+
+    const STATUS_NOT_PARSED = 1;
+
+    const STATUS_PARSED = 2;
+
+    const STATUS_INVALID = 3;
+
+    public static $types = [
+        self::STATUS_PENDING,
+        self::STATUS_NOT_PARSED,
+        self::STATUS_PARSED,
+        self::STATUS_INVALID,
+    ];
+
+    /**
+     * @ORM\Id
+     * @ORM\GeneratedValue
+     * @ORM\Column(name="pge_id", type="integer")
+     *
+     * @Serializer\Expose
+     *
+     * @MysqlJSON\Expose
+     */
+    private $id;
+
+    /**
+     * @ORM\Column(name="pge_status", type="integer")
+     *
+     * @Serializer\Expose
+     *
+     * @MysqlJSON\Expose
+     */
+    private $status;
+
+    /**
+     * @ORM\Column(name="pge_type", type="string")
+     *
+     * @Serializer\Expose
+     *
+     * @MysqlJSON\Expose
+     */
+    private $type;
+
+    /**
+     * @ORM\Column(name="pge_category", type="string")
+     *
+     * @Serializer\Expose
+     *
+     * @MysqlJSON\Expose
+     */
+    private $category;
+
+    /**
+     * @ORM\Column(name="pge_url", type="string")
+     *
+     * @Serializer\Expose
+     *
+     * @MysqlJSON\Expose
+     */
+    private $url;
+
+    /**
+     * One Page has one Lock.
+     *
+     * @ORM\OneToOne(targetEntity="App\Entity\Lock\PageLock", mappedBy="resource")
+     *
+     * @Serializer\Expose
+     *
+     * @MysqlJSON\Expose
+     */
+    private $lock;
+
+    /**
+     * @ORM\Column(name="pge_body", type="blob", nullable=true)
+     *
+     * @Serializer\Expose
+     * @Serializer\Type("string")
+     * @Serializer\AccessType("public_method")
+     *
+     * @Serializer\Groups(groups={"Default", "page_full"})
+     *
+     * @Assert\Type(type="string")
+     *
+     * @MysqlJSON\Expose(groups={"Default", "page_full"}, type="Mash\MysqlJsonSerializer\Wrapper\Type\Blob")
+     */
+    private $body;
+
+    /**
+     * Many Pages have one Style.
+     *
+     * @ORM\ManyToOne(targetEntity="App\Entity\Style", inversedBy="pages", cascade={"persist"})
+     * @ORM\JoinColumn(name="pge_style", referencedColumnName="stl_id", nullable=true)
+     *
+     * @Serializer\Expose
+     * @Serializer\Groups(groups={"page_full"})
+     *
+     * @MysqlJSON\Expose(groups={"page_full"})
+     */
+    private $style;
+
+    /**
+     * Many Pages have one City.
+     *
+     * @var City
+     *
+     * @ORM\ManyToOne(targetEntity="App\Entity\Location\City", cascade={"persist"})
+     * @ORM\JoinColumn(name="pge_city", referencedColumnName="cit_id")
+     *
+     * @Serializer\Expose
+     * @Serializer\Groups(groups={"page_full"})
+     *
+     * @Assert\NotBlank
+     *
+     * @MysqlJSON\Expose(groups={"page_full"})
+     */
+    private $city;
+
+    /**
+     * Many Pages have one Site.
+     *
+     * @var Site
+     *
+     * @ORM\ManyToOne(targetEntity="App\Entity\Site", cascade={"persist"})
+     * @ORM\JoinColumn(name="pge_site", referencedColumnName="site_id")
+     *
+     * @Serializer\Expose
+     * @Serializer\Groups(groups={"page_full"})
+     *
+     * @Assert\NotBlank
+     *
+     * @MysqlJSON\Expose(groups={"page_full"})
+     */
+    private $site;
+
+    //....
+}
+```
+Look to example on top, it's really easy to configure the serialization, looks like using JMSSerializer, or Symfony serializer, when I was writing this feature, I use my experience in Symfony, and take only good things.
+
+If you want to expose some field add `@MysqlJSON\Expose(groups={"page_full"})` and add ` @Rest\View(serializerGroups={"Default", "page_full"})` on controller method
+
+`note`: If you use `@MysqlJSON\Expose` without setting groups, field will have `Default` group
+
+Lets see, how to return result from controller
+
+```php
+<?php
+
+namespace App\RestController;
+
+use App\Annotation\Lock;
+use App\Entity\Lock\PageLock;
+use App\Entity\Page;
+use App\Entity\Site;
+use App\Form\PageType;
+use FOS\RestBundle\Controller\AbstractFOSRestController;
+use FOS\RestBundle\Controller\Annotations as Rest;
+use Mash\MysqlJsonSerializer\QueryBuilder\SQL\SQL;
+use Mash\MysqlJsonSerializer\Service\QueryBuilderFactory;
+use Nelmio\ApiDocBundle\Annotation\ApiDoc;
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\IsGranted;
+use Symfony\Component\HttpFoundation\Request;
+
+/**
+ * Class PageController.
+ *
+ * @Rest\RouteResource("page", pluralize=false)
+ */
+class PageController extends AbstractFOSRestController
+{
+    /**
+     * @var QueryBuilderFactory
+     */
+    private $queryBuilderFactory;
+
+    public function __construct(QueryBuilderFactory $queryBuilderFactory)
+    {
+        $this->queryBuilderFactory = $queryBuilderFactory;
+    }
+
+    /**
+     * Get Page list.
+     *
+     * @ApiDoc(
+     *     views={"v1"},
+     *     section="Page",
+     *     description="Get Page list",
+     *     filters={
+     *         {
+     *             "name": "page",
+     *             "dataType": "integer",
+     *             "required": "false",
+     *             "description": "Page number for pagination"
+     *         },
+     *         {
+     *             "name": "limit",
+     *             "dataType": "integer",
+     *             "required": "false",
+     *             "description": "Limit for pagination"
+     *         },
+     *         {
+     *             "name": "site",
+     *             "dataType": "integer",
+     *             "required": "false",
+     *             "description": "Site ID, numeric site identifier"
+     *         }
+     *     },
+     *     requirements={
+     *         {
+     *             "name": "version",
+     *             "dataType": "string",
+     *             "requirement": "(v1|v2|v3)",
+     *             "description": "API version"
+     *         },
+     *     },
+     *     statusCodes={
+     *         "200": "Returned when successful",
+     *         "403": "Returned when you haven't permissions",
+     *     },
+     *     tags={"v1"}
+     * )
+     *
+     * @Rest\View(serializerGroups={"Default", "page_full"})
+     *
+     * @IsGranted("ROLE_HISTORY_VIEW", statusCode=403, message="Access denied, you have not permissions")
+     *
+     * @param Request $request
+     *
+     * @return SQL
+     */
+    public function getListAction(Request $request)
+    {
+        $page   = $request->get('page', 1);
+        $limit  = $request->get('limit', 20);
+        $siteId = $request->get('site', null);
+        $status = $request->get('status', null);
+        $noLock = $request->get('noLock', null);
+
+        $builder = $this->queryBuilderFactory->getBuilder(Page::class);
+        $builder->orderBy('pge.pge_id', 'DESC');
+
+        if (null !== $status) {
+            $builder
+                ->andWhere('pge.pge_status = :status')
+                ->setParameter('status', $status)
+            ;
+        }
+
+        if (null !== $siteId && 0 !== (int) $siteId) {
+            $builder
+                ->innerJoin(Site::class, 'pge.pge_site = sit.site_id AND sit.site_id = :site')
+                ->setParameter('site', $siteId);
+        }
+
+        if ('1' === $noLock) {
+            $builder
+                ->select('pge.*, lck.lck_id')
+                ->leftJoin(
+                    PageLock::class,
+                    'pge.pge_id = lck.lck_resource AND lck.lck_type = :lock_type'
+                )
+                ->setParameter('lock_type', 'page')
+                ->andWhere('lck.lck_id is NULL')
+            ;
+        }
+
+        return $builder->jsonPagination($page, $limit);
+    }
+
+    /**
+     * Get Page by ID.
+     *
+     * @ApiDoc(
+     *     views={"v1"},
+     *     section="Page",
+     *     description="Get Page by ID",
+     *     requirements={
+     *         {
+     *             "name": "page",
+     *             "dataType": "integer",
+     *             "requirement": "\d+",
+     *             "description": "Page ID"
+     *         },
+     *         {
+     *             "name": "version",
+     *             "dataType": "string",
+     *             "requirement": "(v1|v2|v3)",
+     *             "description": "API version"
+     *         },
+     *     },
+     *     statusCodes={
+     *         "200": "Returned when successful",
+     *         "404": "Returned when not found",
+     *         "403": "Returned when you haven't permissions",
+     *     },
+     *     output="App\Entity\Page",
+     *     tags={"v1"}
+     * )
+     *
+     * @Rest\View(serializerGroups={"Default", "page_full"})
+     *
+     * @IsGranted("ROLE_HISTORY_VIEW", statusCode=403, message="Access denied, you have not permissions")
+     *
+     * @param Page $page
+     *
+     * @return SQL
+     */
+    public function getAction(Page $page)
+    {
+        $builder = $this->queryBuilderFactory->getBuilder(Page::class);
+
+        return $builder->jsonObject($page->getId());
+    }
+
+    /**
+     * Post new Page.
+     *
+     * @ApiDoc(
+     *     views={"v1"},
+     *     section="Page",
+     *     description="Post new Page",
+     *     statusCodes={
+     *         "200": "Returned when successful",
+     *         "404": "Returned when not found",
+     *         "403": "Returned when you haven't permissions",
+     *     },
+     *     input="App\Form\PageType",
+     *     output="App\Entity\Page",
+     *     tags={"v1"}
+     * )
+     *
+     * @Rest\View(serializerGroups={"Default", "page_full"})
+     *
+     * @IsGranted("ROLE_ADMIN", statusCode=403, message="Access denied, you have not permissions")
+     *
+     * @param Request $request
+     *
+     * @return array|SQL
+     */
+    public function postAction(Request $request)
+    {
+        $page = new Page();
+
+        $form = $this->createForm(PageType::class, $page, ['method' => 'POST'])
+            ->handleRequest($request);
+
+        if (false === $form->isSubmitted()) {
+            $form->submit([]);
+        }
+
+        if (false === $form->isValid()) {
+            return ['form' => $form];
+        }
+
+        $manager = $this->getDoctrine()->getManager();
+        $manager->persist($page);
+        $manager->flush();
+
+        $builder = $this->queryBuilderFactory->getBuilder(Page::class);
+
+        return $builder->jsonObject($page->getId());
+    }
+    
+    //...
+}
+```
+
+Method `$builder->jsonPagination($page, $limit);` allows to paginate data into mysql, and return json with all relations, pages, total count and other pagination fields
+
+Example:
+```json
+{"data": [{"id": 216, "url": "http://url", "body": "<html>Some html body</html>", "city": {"id": 41, "cad": "99", "name": "Name", "center": {"latitude": 33.4444, "longitude": 88.9999}, "region": {"id": 41, "cad": "12", "code": "99", "name": "region", "capital": null, "country": {"id": 38, "area": 17100000, "name": "Россия", "capital": null}}, "population": 10000}, "site": {"id": 22, "name": "site_name_7116", "address": "http://test.address"}, "type": "rent", "style": {"id": 21, "hash": "7698daff6f9d6a9947b7773fb3cb90a2b6b7d82238533b41958c047ee4427258"}, "status": 0, "category": "flat"}], "totalItems": 3, "currentPage": 1, "itemsPerPage": 20}
+```
+Also you can get the single serialized object by `$builder->jsonObject($page->getId());` method, it will return serialized object
+
+Example:
+```json
+{"id": 216, "url": "http://url", "body": "<html>Some html body</html>", "city": {"id": 41, "cad": "99", "name": "Name", "center": {"latitude": 33.4444, "longitude": 88.9999}, "region": {"id": 41, "cad": "12", "code": "99", "name": "region", "capital": null, "country": {"id": 38, "area": 17100000, "name": "Россия", "capital": null}}, "population": 10000}, "site": {"id": 22, "name": "site_name_7116", "address": "http://test.address"}, "type": "rent", "style": {"id": 21, "hash": "7698daff6f9d6a9947b7773fb3cb90a2b6b7d82238533b41958c047ee4427258"}, "status": 0, "category": "flat"}
+```
+
+You can use your CustomTypes for implementation you custom serialization logic, for example, by default MySQL serialize blob as base64 decoded value in JSON, but if we add `@MysqlJSON\Expose(groups={"Default", "page_full"}, type="Mash\MysqlJsonSerializer\Wrapper\Type\Blob")` annotation, FieldWrapper will use this type in serialization and return text.
+
+Example of CustomType:
+```php
+<?php
+
+namespace Mash\MysqlJsonSerializer\Wrapper\Type;
+
+class Blob implements CustomTypeInterface
+{
+    public function convert(string $name, string $alias): string
+    {
+        return "CONVERT({$alias}.{$name} USING utf8mb4)";
+    }
+}
+```
+
+It's easy to write your custom type, just implement interface `CustomTypeInterface` and use MySQL functions into.
