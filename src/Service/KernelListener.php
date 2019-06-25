@@ -278,9 +278,41 @@ class KernelListener implements EventSubscriberInterface
             return;
         }
 
-        foreach ($map as $field => $alias) {
-            $this->exposeField($table, $reflection, $field, $alias);
+        foreach ($map as $field => $config) {
+            if (\is_array($config)) {
+                $this->processMapArray($table, $field, $config);
+
+                continue;
+            }
+
+            $this->exposeField($table, $reflection, $field, $config);
         }
+    }
+
+    private function processMapArray(Table $table, string $fieldName, $config): void
+    {
+        if (!isset($config['route'])) {
+            return;
+        }
+
+        $route = \explode('.', $config['route']);
+        $last  = \array_pop($route);
+
+        \preg_match('/(?P<table>[^\[\]]+)(\[(?P<property>[_a-z0-9]+)\])?/ui', $last, $matches);
+
+        if ([] === $matches) {
+            return;
+        }
+
+        $route[] = $matches['table'];
+
+        $table->addJoinField($fieldName, $config['groups'] ?? Expose::DEFAULT_GROUPS)
+            ->setType($config['type'])
+            ->setProperty($matches['property'] ?? null)
+            ->setRoute($route)
+            ->setFilter($config['filter'] ?? [])
+            ->setOrderBy($config['orderBy'] ?? 'id')
+        ;
     }
 
     /**

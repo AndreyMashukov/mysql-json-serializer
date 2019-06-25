@@ -5,6 +5,7 @@ namespace Mash\MysqlJsonSerializer\QueryBuilder\Table;
 use Mash\MysqlJsonSerializer\Annotation\Expose;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\Field;
 use Mash\MysqlJsonSerializer\QueryBuilder\Field\FieldCollection;
+use Mash\MysqlJsonSerializer\QueryBuilder\Field\JoinField;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\Condition\Where;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\JoinStrategy\FieldStrategy;
 use Mash\MysqlJsonSerializer\QueryBuilder\Table\JoinStrategy\ReferenceStrategy;
@@ -82,6 +83,30 @@ class Table
     public function getWhere(): WhereCollection
     {
         return $this->where;
+    }
+
+    /**
+     * @SuppressWarnings(PHPMD.StaticAccess)
+     *
+     * @param string $name
+     * @param array  $serializeGroups
+     *
+     * @return JoinField
+     */
+    public function addJoinField(string $name, array $serializeGroups = Expose::DEFAULT_GROUPS): JoinField
+    {
+        $field = Field::create(
+            $this,
+            $name,
+            Field::TYPE_JOIN,
+            null,
+            null,
+            $serializeGroups
+        );
+
+        $this->fieldList->add($field);
+
+        return $field;
     }
 
     /**
