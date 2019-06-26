@@ -26,6 +26,16 @@ class Mapping
     {
         $name = $field->getName();
 
-        return $this->map[$field->getTable()->getAlias()][$name] ?? $name;
+        return $this->getAliasValue($field->getTable()->getAlias(), $name);
+    }
+
+    public function getAliasValue(string $tableAlias, string $name): string
+    {
+        return $this->map[$tableAlias][$name] ?? $name;
+    }
+
+    public function getTableMap(Table $table): array
+    {
+        return $this->map[$table->getAlias()] ?? [];
     }
 }

@@ -29,6 +29,8 @@ abstract class Field
 
     public const TYPE_SIMPLE = '@simple';
 
+    public const TYPE_JOIN = '@join';
+
     public const TYPE_ONE_TO_MANY = '@oneToMany';
 
     public const TYPE_ONE_TO_ONE = '@oneToOne';
@@ -38,6 +40,7 @@ abstract class Field
     public const TYPE_MANY_TO_MANY = '@manyToMany';
 
     private const ALLOWED_TYPES = [
+        self::TYPE_JOIN         => true,
         self::TYPE_SIMPLE       => true,
         self::TYPE_ONE_TO_MANY  => true,
         self::TYPE_MANY_TO_ONE  => true,
@@ -64,6 +67,8 @@ abstract class Field
         switch ($type) {
             case self::TYPE_SIMPLE:
                 return (new SimpleField($table, $name))->setGroups($groups);
+            case self::TYPE_JOIN:
+                return (new JoinField($table, $name))->setGroups($groups);
             case self::TYPE_MANY_TO_ONE:
                 return (new ManyToOneField($table, $name, $relatedTable, $strategy))->setGroups($groups);
             case self::TYPE_ONE_TO_MANY:

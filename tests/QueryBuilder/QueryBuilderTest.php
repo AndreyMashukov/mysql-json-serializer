@@ -44,7 +44,7 @@ class QueryBuilderTest extends TestCase
             ->addMap($table, 'id', 'my_id')
             ->addMap($table, 'field', 'my_field_name');
 
-        $builder = new QueryBuilder($table, new FieldWrapper($mapping), $this->tableManager);
+        $builder = new QueryBuilder($table, new FieldWrapper($mapping, $this->tableManager), $this->tableManager);
         $sql     = $builder->jsonArray();
         $this->assertEquals(
             "SELECT JSON_ARRAYAGG(JSON_OBJECT('my_id',alias_res.id,'my_field_name',alias_res.field)) FROM (SELECT DISTINCT alias.* FROM test_table alias ) alias_res",
@@ -78,7 +78,7 @@ class QueryBuilderTest extends TestCase
             ->addMap($oneToManyTable, 'adg_id', 'id')
             ->addMap($oneToManyTable, 'adg_name', 'name');
 
-        $builder = new QueryBuilder($table, new FieldWrapper($mapping), $this->tableManager);
+        $builder = new QueryBuilder($table, new FieldWrapper($mapping, $this->tableManager), $this->tableManager);
         $builder
             ->setOffset(2)
             ->setLimit(1);
@@ -117,7 +117,7 @@ class QueryBuilderTest extends TestCase
             ->addMap($table, 'adg_id', 'id')
             ->addMap($table, 'adg_name', 'name');
 
-        $builder = new QueryBuilder($table, new FieldWrapper($mapping), $this->tableManager);
+        $builder = new QueryBuilder($table, new FieldWrapper($mapping, $this->tableManager), $this->tableManager);
         $builder
             ->setOffset(2)
             ->setLimit(2);
@@ -162,7 +162,7 @@ class QueryBuilderTest extends TestCase
             ->addMap($house, 'hou_id', 'id')
             ->addMap($house, 'hou_zip', 'zip_code');
 
-        $builder = new QueryBuilder($advert, new FieldWrapper($mapping), $this->tableManager);
+        $builder = new QueryBuilder($advert, new FieldWrapper($mapping, $this->tableManager), $this->tableManager);
         $builder
             ->innerJoin($contact, 'cnt.cnt_type = :type AND adv.adv_contact = cnt.cnt_id')
             ->setParameter('type', 'owner')
@@ -211,7 +211,7 @@ class QueryBuilderTest extends TestCase
             ->addMap($house, 'hou_id', 'id')
             ->addMap($house, 'hou_zip', 'zip_code');
 
-        $builder = new QueryBuilder($advert, new FieldWrapper($mapping), $this->tableManager);
+        $builder = new QueryBuilder($advert, new FieldWrapper($mapping, $this->tableManager), $this->tableManager);
         $builder
             ->innerJoin($contact, 'cnt.cnt_type = :type AND adv.adv_contact = cnt.cnt_id')
             ->innerJoin($address, 'adv.adv_address = adr.adr_id')
@@ -282,7 +282,7 @@ class QueryBuilderTest extends TestCase
             ->addMap($photo, 'pht_hash', 'hash')
         ;
 
-        $builder = new QueryBuilder($advert, new FieldWrapper($mapping), $this->tableManager);
+        $builder = new QueryBuilder($advert, new FieldWrapper($mapping, $this->tableManager), $this->tableManager);
         $builder->setLimit(2);
 
         $photo
@@ -325,7 +325,7 @@ class QueryBuilderTest extends TestCase
             ->addMap($table, 'adv_id', 'id')
             ->addMap($table, 'adv_type', 'type');
 
-        $builder = new QueryBuilder($table, new FieldWrapper($mapping), $this->tableManager);
+        $builder = new QueryBuilder($table, new FieldWrapper($mapping, $this->tableManager), $this->tableManager);
         $builder
             ->setOffset(2)
             ->setLimit(2);
