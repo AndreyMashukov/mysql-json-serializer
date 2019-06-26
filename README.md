@@ -656,3 +656,89 @@ class Blob implements CustomTypeInterface
 ```
 
 It's easy to write your custom type, just implement interface `CustomTypeInterface` and use MySQL functions into.
+
+## Updates
+
+`v. 2.0`
+
+Now you can create virtual properties, it allows to avoid database denormalization and keep relation model.
+
+example of Entity configuration, just add map to class doc comment.
+```php
+
+/**
+ * @ORM\Entity(repositoryClass="App\Repository\EstateRepository")
+ *
+ * @Serializer\ExclusionPolicy(Serializer\ExclusionPolicy::ALL)
+ *
+ * @Table(alias="est", map={
+ *     "max_rooms": {
+ *         "route": "App\Entity\AdvertGroup.App\Entity\Advert[rooms]",
+ *         "type": Mash\MysqlJsonSerializer\QueryBuilder\Field\JoinField::TYPE_MAX,
+ *         "groups": {"estate_public_list"},
+ *     },
+ *     "min_rooms": {
+ *         "route": "App\Entity\AdvertGroup.App\Entity\Advert[rooms]",
+ *         "type": Mash\MysqlJsonSerializer\QueryBuilder\Field\JoinField::TYPE_MIN,
+ *         "groups": {"estate_public_list"},
+ *     },
+ *     "max_area": {
+ *         "route": "App\Entity\AdvertGroup.App\Entity\Advert[area]",
+ *         "type": Mash\MysqlJsonSerializer\QueryBuilder\Field\JoinField::TYPE_MAX,
+ *         "groups": {"estate_public_list"},
+ *     },
+ *     "min_area": {
+ *         "route": "App\Entity\AdvertGroup.App\Entity\Advert[area]",
+ *         "type": Mash\MysqlJsonSerializer\QueryBuilder\Field\JoinField::TYPE_MIN,
+ *         "groups": {"estate_public_list"},
+ *     },
+ *     "max_sell_price": {
+ *         "route": "App\Entity\AdvertGroup.App\Entity\Advert[price]",
+ *         "type": Mash\MysqlJsonSerializer\QueryBuilder\Field\JoinField::TYPE_MAX,
+ *         "groups": {"estate_public_list"},
+ *         "filter": {"adv_type": "sell"},
+ *     },
+ *     "min_sell_price": {
+ *         "route": "App\Entity\AdvertGroup.App\Entity\Advert[price]",
+ *         "type": Mash\MysqlJsonSerializer\QueryBuilder\Field\JoinField::TYPE_MIN,
+ *         "groups": {"estate_public_list"},
+ *         "filter": {"adv_type": "sell"},
+ *     },
+ *     "max_rent_price": {
+ *         "route": "App\Entity\AdvertGroup.App\Entity\Advert[price]",
+ *         "type": Mash\MysqlJsonSerializer\QueryBuilder\Field\JoinField::TYPE_MAX,
+ *         "groups": {"estate_public_list"},
+ *         "filter": {"adv_type": "rent"},
+ *     },
+ *     "min_rent_price": {
+ *         "route": "App\Entity\AdvertGroup.App\Entity\Advert[price]",
+ *         "type": Mash\MysqlJsonSerializer\QueryBuilder\Field\JoinField::TYPE_MIN,
+ *         "groups": {"estate_public_list"},
+ *         "filter": {"adv_type": "rent"},
+ *     },
+ *     "address": {
+ *         "route": "App\Entity\AdvertGroup.App\Entity\Advert.App\Entity\Address",
+ *         "type": Mash\MysqlJsonSerializer\QueryBuilder\Field\JoinField::TYPE_FIRST,
+ *         "orderBy": "id",
+ *         "groups": {"estate_public_list"},
+ *     },
+ *     "advert_count": {
+ *         "route": "App\Entity\AdvertGroup.App\Entity\Advert[id]",
+ *         "type": Mash\MysqlJsonSerializer\QueryBuilder\Field\JoinField::TYPE_COUNT,
+ *         "groups": {"estate_public_list"},
+ *     },
+ *     "rent_description": {
+ *         "route": "App\Entity\AdvertGroup.App\Entity\Advert[description]",
+ *         "type": Mash\MysqlJsonSerializer\QueryBuilder\Field\JoinField::TYPE_FIRST,
+ *         "groups": {"estate_public_list"},
+ *         "filter": {"adv_type": "rent"},
+ *     },
+ *     "sell_description": {
+ *         "route": "App\Entity\AdvertGroup.App\Entity\Advert[description]",
+ *         "type": Mash\MysqlJsonSerializer\QueryBuilder\Field\JoinField::TYPE_FIRST,
+ *         "groups": {"estate_public_list"},
+ *         "filter": {"adv_type": "sell"},
+ *     },
+ * })
+ */
+ ```
