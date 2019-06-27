@@ -28,6 +28,10 @@ class FieldWrapper
 {
     use PartHelper;
 
+    public const ERROR_CAN_NOT_PARSE_COLLECTION_SQL = 2;
+
+    public const ERROR_INVALID_MAP = 4;
+
     public const UNLIMITED_DEPTH = 0;
 
     public const JOIN_FIELD_MAX_DEPTH = 1;
@@ -119,11 +123,15 @@ class FieldWrapper
         ++$this->cache[$key];
 
         if ($field instanceof SimpleField) {
-            return $this->wrapSimple($field, $aliasSuffix);
+            $result = $this->wrapSimple($field, $aliasSuffix);
+
+            return $result;
         }
 
         if ($field instanceof JoinField) {
-            return $this->wrapJoin($field, $aliasSuffix);
+            $result = $this->wrapJoin($field, $aliasSuffix);
+
+            return $result;
         }
 
         return "'" . $this->mapping->getAlias($field) . "'," . $this->subSelect($field, $aliasSuffix, $join, $where);
@@ -137,23 +145,31 @@ class FieldWrapper
             $steps[] = $this->tableManager->getTable($entityClass);
         }
 
-        $lastStep = \end($steps);
-        $value    = $this->getTableColumn($lastStep, $field->getProperty());
+        /** @var Table $last */
+        $last     = \end($steps);
+        $relation = $last->getFieldList()->getByName($field->getProperty());
 
-        if (!$value && JoinField::TYPE_FIRST === $field->getType()) {
-            return $this->wrapFirst($field, $steps, $suffix);
+        if (JoinField::TYPE_FIRST === $field->getType() && $relation) {
+            return $this->wrapRelation($field, $steps, $suffix);
         }
+
+        if (JoinField::TYPE_COLLECTION === $field->getType() && $relation) {
+            return $this->wrapRelation($field, $steps, $suffix);
+        }
+
+        // ToDo add support of simple field collection...
 
         return "'{$field->getName()}', ({$this->getJoinFieldSelect($steps, $field, $suffix)} LIMIT 1)";
     }
 
-    private function wrapFirst(JoinField $field, array $steps, string $masterSuffix): string
+    private function wrapRelation(JoinField $field, array $steps, string $masterSuffix): string
     {
+        /** @var Table $last */
         $last         = \end($steps);
-        $beforeLast   = $steps[\count($steps) - 2] ?? $field->getTable();
         $uniqueSuffix = \mb_substr(\md5(\uniqid()), 0, 5);
 
-        $join = $this->getNextJoin($last, $beforeLast);
+        $join    = $last->getFieldList()->getByName($field->getProperty());
+        $steps[] = $join->getTable();
 
         $joinClosure = function ($uniqSuffix) use ($steps) {
             $joins = $this->getJoins($steps, $uniqSuffix);
@@ -161,17 +177,35 @@ class FieldWrapper
             return ' ' . \implode(' ', $joins) . ' ';
         };
 
-        $orderBy = $this->getTableColumn($field->getTable(), $field->getOrderBy());
+        $orderBy = $this->getTableColumn($last, $field->getOrderBy());
 
-        $whereClosure = function ($uniqSuffix) use ($masterSuffix, $field, $orderBy) {
-            return "WHERE {$this->getJoinWhere($field, $uniqSuffix, $masterSuffix)} ORDER BY {$orderBy}";
+        $whereClosure = function ($uniqSuffix) use ($masterSuffix, $field, $orderBy, $last) {
+            $filter    = $this->getFilter($field, $uniqSuffix, $last);
+            $filterSql = ' ';
+
+            if ([] !== $filter) {
+                $filterSql .= 'AND ' . \implode(' AND ', $filter) . ' ';
+            }
+
+            return "WHERE {$this->getJoinWhere($field, $uniqSuffix, $masterSuffix)}{$filterSql}ORDER BY {$last->getAlias()}_{$uniqSuffix}.{$orderBy} ASC";
         };
 
         $join->setGroups($field->getGroups());
 
         $sql = $this->wrapField($join, "_{$uniqueSuffix}", $joinClosure, $whereClosure);
 
-        return $sql;
+        if (!($join instanceof ManyToOneField && JoinField::TYPE_COLLECTION === $field->getType())) {
+            return $sql;
+        }
+
+        // ToDo weak place, need to improve in future
+        \preg_match('/,\(SELECT\s+JSON_OBJECT\((?P<json_object>.+)\)\s+(?P<sql>.+)\s+LIMIT 1\)/ui', $sql, $matches);
+
+        if ([] === $matches) {
+            throw new \RuntimeException('Can\'t parse collection sql.', self::ERROR_CAN_NOT_PARSE_COLLECTION_SQL);
+        }
+
+        return "'{$field->getName()}',(SELECT JSON_ARRAYAGG(JSON_OBJECT({$matches['json_object']})) {$matches['sql']})";
     }
 
     private function getJoinFieldSelect(array $steps, JoinField $field, string $suffix): string
@@ -190,7 +224,7 @@ class FieldWrapper
         $fieldType = $field->getType();
 
         if (JoinField::TYPE_FIRST !== $fieldType && !$value) {
-            throw new \InvalidArgumentException('Invalid map, please provide field in [] or change field type.');
+            throw new \InvalidArgumentException('Invalid map, please provide field in [] or change field type.', self::ERROR_INVALID_MAP);
         }
 
         if (JoinField::TYPE_MAX === $fieldType) {
@@ -214,11 +248,7 @@ class FieldWrapper
         $sql .= "FROM {$lastStep->getName()} {$mainAlias}_{$uniqueSuffix} " . \implode(' ', $joins) . ' ';
         $sql .= "WHERE {$this->getJoinWhere($field, $uniqueSuffix, $suffix)}";
 
-        $filter = [];
-
-        foreach ($field->getFilter() as $column => $value) {
-            $filter[] = "{$mainAlias}_{$uniqueSuffix}.{$column} = '{$value}'";
-        }
+        $filter = $this->getFilter($field, $uniqueSuffix, $lastStep);
 
         if ([] !== $filter) {
             $sql .= ' AND ' . \implode(' AND ', $filter);
@@ -226,7 +256,18 @@ class FieldWrapper
 
         $orderBy = $this->getTableColumn($lastStep, $field->getOrderBy());
 
-        return $sql . " ORDER BY {$orderBy}";
+        return $sql . " ORDER BY {$lastStep->getAlias()}_{$uniqueSuffix}.{$orderBy} ASC";
+    }
+
+    private function getFilter(JoinField $field, string $uniqueSuffix, Table $table): array
+    {
+        $filter = [];
+
+        foreach ($field->getFilter() as $property => $value) {
+            $filter[] = "{$table->getAlias()}_{$uniqueSuffix}.{$this->getTableColumn($table, $property)} = '{$value}'";
+        }
+
+        return $filter;
     }
 
     private function getJoinWhere(JoinField $field, string $uniqueSuffix, string $masterSuffix): string

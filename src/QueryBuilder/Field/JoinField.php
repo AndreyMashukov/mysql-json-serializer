@@ -12,6 +12,8 @@ class JoinField extends Field
 
     public const TYPE_COUNT = 'count';
 
+    public const TYPE_COLLECTION = 'collection';
+
     /** @var string */
     private $orderBy;
 
