@@ -18,7 +18,7 @@ class FieldCollection
 
     public function add(Field $field): self
     {
-        $this->elements[] = $field;
+        $this->elements[$field->getName()] = $field;
 
         return $this;
     }
@@ -26,5 +26,10 @@ class FieldCollection
     public function getElements(): array
     {
         return $this->elements;
+    }
+
+    public function getByName(string $name): ?Field
+    {
+        return $this->elements[$name] ?? null;
     }
 }
