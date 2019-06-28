@@ -191,6 +191,7 @@ class FieldWrapper
         };
 
         $join->setGroups($field->getGroups());
+        $join->setName($field->getName());
 
         $sql = $this->wrapField($join, "_{$uniqueSuffix}", $joinClosure, $whereClosure);
 
