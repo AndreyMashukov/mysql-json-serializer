@@ -92,14 +92,16 @@ class FieldWrapper
     }
 
     /**
-     * @param Field    $field
-     * @param string   $aliasSuffix
-     * @param \Closure $join
-     * @param \Closure $where
+     * @param Field|RelationInterface $field
+     * @param string                  $aliasSuffix
+     * @param \Closure                $join
+     * @param \Closure                $where
+     * @param \Closure                $groupBy
+     * @param \Closure                $orderBy
      *
      * @return string
      */
-    private function wrapField(Field $field, string $aliasSuffix = '', \Closure $join = null, \Closure $where = null): string
+    private function wrapField(Field $field, string $aliasSuffix = '', \Closure $join = null, \Closure $where = null, \Closure $groupBy = null, \Closure $orderBy = null): string
     {
         $key = $this->getKey($field);
 
@@ -134,7 +136,7 @@ class FieldWrapper
             return $result;
         }
 
-        return "'" . $this->mapping->getAlias($field) . "'," . $this->subSelect($field, $aliasSuffix, $join, $where);
+        return "'" . $this->mapping->getAlias($field) . "'," . $this->subSelect($field, $aliasSuffix, $join, $where, $groupBy, $orderBy);
     }
 
     private function wrapJoin(JoinField $field, string $suffix): string
@@ -171,15 +173,14 @@ class FieldWrapper
         $join    = $last->getFieldList()->getByName($field->getProperty());
         $steps[] = $join->getTable();
 
-        $joinClosure = function ($uniqSuffix) use ($steps) {
+        $joinClosure = function (string $uniqSuffix) use ($steps) {
             $joins = $this->getJoins($steps, $uniqSuffix);
 
             return ' ' . \implode(' ', $joins) . ' ';
         };
 
-        $orderBy = $this->getTableColumn($last, $field->getOrderBy());
-
-        $whereClosure = function ($uniqSuffix) use ($masterSuffix, $field, $orderBy, $last) {
+        $orderBy      = $this->getTableColumn($last, $field->getOrderBy());
+        $whereClosure = function (string $uniqSuffix) use ($masterSuffix, $field, $orderBy, $last) {
             $filter    = $this->getFilter($field, $uniqSuffix, $last);
             $filterSql = ' ';
 
@@ -187,15 +188,27 @@ class FieldWrapper
                 $filterSql .= 'AND ' . \implode(' AND ', $filter) . ' ';
             }
 
-            return "WHERE {$this->getJoinWhere($field, $uniqSuffix, $masterSuffix)}{$filterSql}ORDER BY {$last->getAlias()}_{$uniqSuffix}.{$orderBy} ASC";
+            return "WHERE {$this->getJoinWhere($field, $uniqSuffix, $masterSuffix)}{$filterSql}";
+        };
+
+        $groupClosure = null;
+
+        if ($join instanceof ManyToManyField) {
+            $groupClosure = function (string $uniqSuffix) use ($last) {
+                return "GROUP BY {$last->getAlias()}_{$uniqSuffix}.{$last->getIdField()}";
+            };
+        }
+
+        $orderByClosure = function (string $uniqSuffix) use ($last, $orderBy) {
+            return "ORDER BY {$last->getAlias()}_{$uniqSuffix}.{$orderBy} ASC";
         };
 
         $join->setGroups($field->getGroups());
         $join->setName($field->getName());
 
-        $sql = $this->wrapField($join, "_{$uniqueSuffix}", $joinClosure, $whereClosure);
+        $sql = $this->wrapField($join, "_{$uniqueSuffix}", $joinClosure, $whereClosure, $groupClosure, $orderByClosure);
 
-        if (!($join instanceof ManyToOneField && JoinField::TYPE_COLLECTION === $field->getType())) {
+        if (!($join instanceof ManyToOneField && JoinField::TYPE_COLLECTION === $field->getType()) || $join instanceof ManyToManyField) {
             return $sql;
         }
 
@@ -206,9 +219,16 @@ class FieldWrapper
             throw new \RuntimeException('Can\'t parse collection sql.', self::ERROR_CAN_NOT_PARSE_COLLECTION_SQL);
         }
 
-        return "'{$field->getName()}',(SELECT JSON_ARRAYAGG(JSON_OBJECT({$matches['json_object']})) {$matches['sql']})";
+        return "'{$field->getName()}',(SELECT IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT({$matches['json_object']})) {$matches['sql']}), JSON_ARRAY()))";
     }
 
+    /**
+     * @param array     $steps
+     * @param JoinField $field
+     * @param string    $suffix
+     *
+     * @return string
+     */
     private function getJoinFieldSelect(array $steps, JoinField $field, string $suffix): string
     {
         $uniqueSuffix = \mb_substr(\md5(\uniqid()), 0, 5);
@@ -297,12 +317,36 @@ class FieldWrapper
             }
 
             $nextJoin = $this->getNextJoin($step, $next);
-            $joins[]  = "INNER JOIN {$next->getName()} {$next->getAlias()}_{$uniqueSuffix} ON {$this->getCondition($nextJoin, $uniqueSuffix)}";
+
+            if ($nextJoin instanceof ManyToManyField) {
+                $joins[] = $this->getManyToManyJoin($nextJoin, $uniqueSuffix);
+
+                continue;
+            }
+
+            $joins[] = "INNER JOIN {$next->getName()} {$next->getAlias()}_{$uniqueSuffix} ON {$this->getCondition($nextJoin, $uniqueSuffix)}";
 
             continue;
         }
 
         return $joins;
+    }
+
+    private function getManyToManyJoin(Field $field, string $suffix): string
+    {
+        $strategy        = $field->getStrategy()->getStrategy();
+        $main            = $strategy->getFirst()->getFirst();
+        $mainRef         = $strategy->getFirst()->getSecond();
+        $collection      = $strategy->getSecond()->getFirst();
+        $collectionXref  = $strategy->getSecond()->getSecond();
+
+        $collectionXrefTable = $collectionXref->getTable();
+
+        return "INNER JOIN {$collectionXrefTable->getName()} {$collectionXrefTable->getAlias()}_{$suffix} "
+            . "ON {$collection->getTable()->getAlias()}_{$suffix}.{$collection->getField()} = "
+            . "{$collectionXrefTable->getAlias()}_{$suffix}.{$collectionXref->getField()} "
+            . "INNER JOIN {$main->getTable()->getName()} {$main->getTable()->getAlias()}_{$suffix} "
+            . "ON {$main->getTable()->getAlias()}_{$suffix}.{$main->getTable()->getIdField()} = {$mainRef->getTable()->getAlias()}_{$suffix}.{$mainRef->getField()}";
     }
 
     private function getCondition(Field $field, string $suffix): string
@@ -375,11 +419,19 @@ class FieldWrapper
      * @param string            $aliasSuffix
      * @param \Closure          $join
      * @param \Closure          $where
+     * @param \Closure          $groupBy
+     * @param \Closure          $orderBy
      *
      * @return string
      */
-    private function subSelect(RelationInterface $field, string $aliasSuffix = '', \Closure $join = null, \Closure $where = null): string
-    {
+    private function subSelect(
+        RelationInterface $field,
+        string $aliasSuffix = '',
+        \Closure $join = null,
+        \Closure $where = null,
+        \Closure $groupBy = null,
+        \Closure $orderBy = null
+    ): string {
         if ($field instanceof OneToManyField) {
             return $this->getOneToMany($field, $aliasSuffix);
         }
@@ -392,7 +444,7 @@ class FieldWrapper
             return $this->getOneToOne($field, $aliasSuffix);
         }
 
-        return $this->getManyToMany($field, $aliasSuffix);
+        return $this->getManyToMany($field, $aliasSuffix, $join, $where, $groupBy, $orderBy); // ToDo add group by in others in future
     }
 
     private function getOneToMany(OneToManyField $field, string $aliasSuffix): string
@@ -455,7 +507,17 @@ class FieldWrapper
         return $sql;
     }
 
-    private function getManyToMany(ManyToManyField $field, string $aliasSuffix): string
+    /**
+     * @param ManyToManyField $field
+     * @param string          $aliasSuffix
+     * @param null|\Closure   $join
+     * @param null|\Closure   $where
+     * @param null|\Closure   $groupBy
+     * @param null|\Closure   $orderBy
+     *
+     * @return string
+     */
+    private function getManyToMany(ManyToManyField $field, string $aliasSuffix, \Closure $join = null, \Closure $where = null, \Closure $groupBy = null, \Closure $orderBy = null): string
     {
         $table = $field->getTable();
         /** @var ReferenceStrategy $strategy */
@@ -469,15 +531,30 @@ class FieldWrapper
         $uniqSuffix     = \mb_substr(\md5(\uniqid()), 0, 5);
         $uniqSuffixMain = \mb_substr(\md5(\uniqid()), 0, 5);
 
-        $sql   = "IFNULL((SELECT JSON_ARRAYAGG({$this->wrap($field->getFieldList(), '_' . $uniqSuffixMain)}) "
-            . "FROM {$table->getName()} {$table->getAlias()}_{$uniqSuffixMain} "
-            . "INNER JOIN {$collectionXref->getTable()->getName()} {$collectionXref->getTable()->getAlias()}_{$uniqSuffixRef} "
+        $whereCondition = "WHERE {$main->getTable()->getAlias()}_{$uniqSuffix}.{$main->getTable()->getIdField()} = "
+            . "{$main->getTable()->getAlias()}{$aliasSuffix}.{$main->getTable()->getIdField()}";
+
+        if ($where) {
+            $whereCondition = "{$where($uniqSuffixMain)}";
+        }
+
+        $inner = "INNER JOIN {$collectionXref->getTable()->getName()} {$collectionXref->getTable()->getAlias()}_{$uniqSuffixRef} "
             . "ON {$collection->getTable()->getAlias()}_{$uniqSuffixMain}.{$collection->getField()} = "
             . "{$collectionXref->getTable()->getAlias()}_{$uniqSuffixRef}.{$collectionXref->getField()} "
             . "INNER JOIN {$main->getTable()->getName()} {$main->getTable()->getAlias()}_{$uniqSuffix} "
-            . "ON {$main->getTable()->getAlias()}_{$uniqSuffix}.{$main->getTable()->getIdField()} = {$mainRef->getTable()->getAlias()}_{$uniqSuffixRef}.{$mainRef->getField()} "
-            . "WHERE {$main->getTable()->getAlias()}_{$uniqSuffix}.{$main->getTable()->getIdField()} = "
-            . "{$main->getTable()->getAlias()}{$aliasSuffix}.{$main->getTable()->getIdField()}"
+            . "ON {$main->getTable()->getAlias()}_{$uniqSuffix}.{$main->getTable()->getIdField()} = {$mainRef->getTable()->getAlias()}_{$uniqSuffixRef}.{$mainRef->getField()} ";
+
+        if ($join) {
+            $inner = $join($uniqSuffixMain) . ' ';
+        }
+
+        $sql = "IFNULL((SELECT JSON_ARRAYAGG({$this->wrap($field->getFieldList(), '_' . $uniqSuffixMain)}) "
+            . "FROM {$table->getName()} {$table->getAlias()}_{$uniqSuffixMain} "
+            . $inner
+            . $whereCondition
+            . ($groupBy ? " {$groupBy($uniqSuffixMain)} " : '')
+            . ($orderBy ? " {$orderBy($uniqSuffixMain)} " : '')
+            . ($groupBy ? ' LIMIT 1' : '')
             . '), JSON_ARRAY())'
         ;
 
