@@ -663,7 +663,7 @@ It's easy to write your custom type, just implement interface `CustomTypeInterfa
 
 ## Updates
 
-`v. 2.0`
+`v. 2.0.5`
 
 Now you can create virtual properties, it allows to avoid database denormalization and keep relation model.
 
@@ -677,6 +677,11 @@ example of Entity configuration, just add map to class doc comment.
  * @Serializer\ExclusionPolicy(Serializer\ExclusionPolicy::ALL)
  *
  * @Table(alias="est", map={
+ *     "last_update": {
+ *         "route": "App\Entity\AdvertGroup.App\Entity\Advert[updated_at]",
+ *         "type": Mash\MysqlJsonSerializer\QueryBuilder\Field\JoinField::TYPE_MAX,
+ *         "groups": {"estate_public_list"},
+ *     },
  *     "max_rooms": {
  *         "route": "App\Entity\AdvertGroup.App\Entity\Advert[rooms]",
  *         "type": Mash\MysqlJsonSerializer\QueryBuilder\Field\JoinField::TYPE_MAX,
@@ -744,11 +749,37 @@ example of Entity configuration, just add map to class doc comment.
  *         "groups": {"estate_public_list"},
  *         "filter": {"type": "sell"},
  *     },
- *     "rent_contacts": {
- *         "route": "App\Entity\AdvertGroup.App\Entity\Advert[contact]",
+ *     "type": {
+ *         "route": "App\Entity\AdvertGroup.App\Entity\Advert[type]",
+ *         "type": Mash\MysqlJsonSerializer\QueryBuilder\Field\JoinField::TYPE_FIRST,
+ *         "groups": {"estate_public_list"},
+ *     },
+ *     "category": {
+ *         "route": "App\Entity\AdvertGroup.App\Entity\Advert[category]",
+ *         "type": Mash\MysqlJsonSerializer\QueryBuilder\Field\JoinField::TYPE_FIRST,
+ *         "groups": {"estate_public_list"},
+ *     },
+ *     "daily": {
+ *         "route": "App\Entity\AdvertGroup.App\Entity\Advert[daily]",
+ *         "type": Mash\MysqlJsonSerializer\QueryBuilder\Field\JoinField::TYPE_MAX,
+ *         "groups": {"estate_public_list"},
+ *     },
+ *     "sell_contacts_ids": {
+ *         "route": "App\Entity\AdvertGroup.App\Entity\Advert.App\Entity\Contact[id]",
  *         "type": Mash\MysqlJsonSerializer\QueryBuilder\Field\JoinField::TYPE_COLLECTION,
  *         "groups": {"estate_public_list"},
- *         "filter": {"type": "rent"},
+ *         "filter": {"App\Entity\Advert[type]": "sell"},
+ *     },
+ *     "rent_contacts_ids": {
+ *         "route": "App\Entity\AdvertGroup.App\Entity\Advert.App\Entity\Contact[id]",
+ *         "type": Mash\MysqlJsonSerializer\QueryBuilder\Field\JoinField::TYPE_COLLECTION,
+ *         "groups": {"estate_public_list"},
+ *         "filter": {"App\Entity\Advert[type]": "rent"},
+ *     },
+ *     "photo_files_ids": {
+ *         "route": "App\Entity\AdvertGroup.App\Entity\Advert.App\Entity\Photo.App\Entity\GoogleFile[file_id]",
+ *         "type": Mash\MysqlJsonSerializer\QueryBuilder\Field\JoinField::TYPE_COLLECTION,
+ *         "groups": {"estate_public_list"},
  *     },
  * })
  */
@@ -759,5 +790,5 @@ class Estate
 
 result:
 ```json
-{"id":5,"name":"\u041c\u043e\u0441\u043a\u0432\u0430, \u043e\u043d\u0435\u0436\u0441\u043a\u0430\u044f, 53\u043a1, 20","likes":[{"id":76,"user":{"id":1},"estate":{"id":5,"name":"\u041c\u043e\u0441\u043a\u0432\u0430, \u043e\u043d\u0435\u0436\u0441\u043a\u0430\u044f, 53\u043a1, 20"}}],"address":{"house":{"living_area":{"name":"\u0448\u0443\u0432\u0430\u043b\u043e\u0432\u0441\u043a\u0438\u0439 prima \u0436\u0438\u043b\u043e\u0439 \u043a\u043e\u043c\u043f\u043b\u0435\u043a\u0441"},"nearby_stations":[{"id":13,"route":{"legs":[{"distance":{"text":"2,6 \u043a\u043c","value":2619},"duration":{"text":"21 \u043c\u0438\u043d.","value":1283}}]},"station":{"id":26,"name":"\u0420\u0435\u0447\u043d\u043e\u0439 \u0432\u043e\u043a\u0437\u0430\u043b","metro_line":{"name":"\u0417\u0430\u043c\u043e\u0441\u043a\u0432\u043e\u0440\u0435\u0446\u043a\u0430\u044f","color":"4FB04F"}},"distance":1989.125241883},{"id":14,"route":{"legs":[{"distance":{"text":"2,9 \u043a\u043c","value":2881},"duration":{"text":"20 \u043c\u0438\u043d.","value":1190}}]},"station":{"id":251,"name":"\u041a\u043e\u043f\u0442\u0435\u0432\u043e","metro_line":{"name":"\u041c\u043e\u0441\u043a\u043e\u0432\u0441\u043a\u043e\u0435 \u0446\u0435\u043d\u0442\u0440\u0430\u043b\u044c\u043d\u043e\u0435 \u043a\u043e\u043b\u044c\u0446\u043e","color":"F9BCD1"}},"distance":2371.3891511315},{"id":15,"route":{"legs":[{"distance":{"text":"5,9 \u043a\u043c","value":5867},"duration":{"text":"39 \u043c\u0438\u043d.","value":2350}}]},"station":{"id":189,"name":"\u0421\u0435\u043b\u0438\u0433\u0435\u0440\u0441\u043a\u0430\u044f","metro_line":{"name":"\u041b\u044e\u0431\u043b\u0438\u043d\u0441\u043a\u043e-\u0414\u043c\u0438\u0442\u0440\u043e\u0432\u0441\u043a\u0430\u044f","color":"BED12C"}},"distance":2744.2158722766},{"id":16,"route":{"legs":[{"distance":{"text":"13,0 \u043a\u043c","value":12962},"duration":{"text":"57 \u043c\u0438\u043d.","value":3399}}]},"station":{"id":155,"name":"\u0421\u0445\u043e\u0434\u043d\u0435\u043d\u0441\u043a\u0430\u044f","metro_line":{"name":"\u0422\u0430\u0433\u0430\u043d\u0441\u043a\u043e-\u041a\u0440\u0430\u0441\u043d\u043e\u043f\u0440\u0435\u0441\u043d\u0435\u043d\u0441\u043a\u0430\u044f","color":"943E90"}},"distance":4295.9764504959},{"id":17,"route":{"legs":[{"distance":{"text":"9,4 \u043a\u043c","value":9379},"duration":{"text":"41 \u043c\u0438\u043d.","value":2451}}]},"station":{"id":133,"name":"\u041f\u0435\u0442\u0440\u043e\u0432\u0441\u043a\u043e-\u0420\u0430\u0437\u0443\u043c\u043e\u0432\u0441\u043a\u0430\u044f","metro_line":{"name":"\u0421\u0435\u0440\u043f\u0443\u0445\u043e\u0432\u0441\u043a\u043e-\u0422\u0438\u043c\u0438\u0440\u044f\u0437\u0435\u0432\u0441\u043a\u0430\u044f","color":"ADACAC"}},"distance":4987.258303491}]},"district":{"name":"\u0445\u043e\u0432\u0440\u0438\u043d\u043e"}},"max_area":46,"min_area":20,"max_rooms":1,"min_rooms":1,"advert_count":36,"rent_contacts":[{"id":29,"name":"User 6680","type":"owner"},{"id":7,"name":"User 1460","type":"realtor"},{"id":7,"name":"User 1460","type":"realtor"},{"id":20,"name":"User 3916","type":"realtor"},{"id":31,"name":"User 2453","type":"owner"},{"id":23,"name":"User 3285","type":"owner"},{"id":23,"name":"User 3285","type":"owner"},{"id":15,"name":"User 5663","type":"realtor"},{"id":11,"name":"User 4801","type":"realtor"},{"id":31,"name":"User 2453","type":"owner"},{"id":18,"name":"User 2685","type":"realtor"},{"id":11,"name":"User 4801","type":"realtor"},{"id":25,"name":"User 7028","type":"owner"},{"id":11,"name":"User 4801","type":"realtor"},{"id":23,"name":"User 3285","type":"owner"},{"id":11,"name":"User 4801","type":"realtor"},{"id":18,"name":"User 2685","type":"realtor"},{"id":7,"name":"User 1460","type":"realtor"},{"id":7,"name":"User 1460","type":"realtor"},{"id":31,"name":"User 2453","type":"owner"},{"id":20,"name":"User 3916","type":"realtor"},{"id":25,"name":"User 7028","type":"owner"},{"id":15,"name":"User 5663","type":"realtor"},{"id":7,"name":"User 1460","type":"realtor"},{"id":15,"name":"User 5663","type":"realtor"},{"id":7,"name":"User 1460","type":"realtor"},{"id":29,"name":"User 6680","type":"owner"},{"id":18,"name":"User 2685","type":"realtor"},{"id":25,"name":"User 7028","type":"owner"},{"id":7,"name":"User 1460","type":"realtor"},{"id":7,"name":"User 1460","type":"realtor"},{"id":7,"name":"User 1460","type":"realtor"},{"id":15,"name":"User 5663","type":"realtor"},{"id":31,"name":"User 2453","type":"owner"},{"id":18,"name":"User 2685","type":"realtor"},{"id":18,"name":"User 2685","type":"realtor"}],"max_rent_price":19958,"max_sell_price":null,"min_rent_price":15117,"min_sell_price":null,"rent_description":"Eligendi qui ducimus porro delectus.Atque voluptates enim quia quis quam.Tempore sunt quidem eligendi similique.Omnis cumque earum repellat.Nihil non culpa iste ut est nobis.Harum eveniet dolorem recusandae et.Qui officia eaque sunt est perferendis magni ut illum.Officiis ea aut sint quisquam.Eligendi nulla consectetur inventore.Numquam eveniet eligendi aliquid aperiam.Est facere doloremque dolorem sint quis et.Non cupiditate non ut ut porro illum et.Beatae nemo aut iusto dicta asperiores ut fuga.Voluptas sed aut qui corrupti.Libero quis repellendus illum cum voluptatem non sit.Voluptatem perspiciatis tempore unde odio repellendus quisquam sit.Non deleniti eaque et modi fugiat qui et rem.Et ratione a enim.Illo sint quo aut aut sint provident.Sit hic magni a ut sapiente et ea et.","sell_description":null}
+{"id":5,"name":"\u041c\u043e\u0441\u043a\u0432\u0430, \u043e\u043d\u0435\u0436\u0441\u043a\u0430\u044f, 53\u043a1, 20","type":"rent","daily":0,"likes":[],"address":{"house":{"living_area":null,"nearby_stations":[{"id":13,"route":{"legs":[{"distance":{"text":"2,6 \u043a\u043c","value":2619},"duration":{"text":"21 \u043c\u0438\u043d.","value":1283}}]},"station":{"id":26,"name":"\u0420\u0435\u0447\u043d\u043e\u0439 \u0432\u043e\u043a\u0437\u0430\u043b","metro_line":{"name":"\u0417\u0430\u043c\u043e\u0441\u043a\u0432\u043e\u0440\u0435\u0446\u043a\u0430\u044f","color":"4FB04F"}},"distance":1989.125241883},{"id":14,"route":{"legs":[{"distance":{"text":"2,9 \u043a\u043c","value":2881},"duration":{"text":"20 \u043c\u0438\u043d.","value":1190}}]},"station":{"id":251,"name":"\u041a\u043e\u043f\u0442\u0435\u0432\u043e","metro_line":{"name":"\u041c\u043e\u0441\u043a\u043e\u0432\u0441\u043a\u043e\u0435 \u0446\u0435\u043d\u0442\u0440\u0430\u043b\u044c\u043d\u043e\u0435 \u043a\u043e\u043b\u044c\u0446\u043e","color":"F9BCD1"}},"distance":2371.3891511315},{"id":15,"route":{"legs":[{"distance":{"text":"5,9 \u043a\u043c","value":5867},"duration":{"text":"39 \u043c\u0438\u043d.","value":2350}}]},"station":{"id":189,"name":"\u0421\u0435\u043b\u0438\u0433\u0435\u0440\u0441\u043a\u0430\u044f","metro_line":{"name":"\u041b\u044e\u0431\u043b\u0438\u043d\u0441\u043a\u043e-\u0414\u043c\u0438\u0442\u0440\u043e\u0432\u0441\u043a\u0430\u044f","color":"BED12C"}},"distance":2744.2158722766},{"id":16,"route":{"legs":[{"distance":{"text":"13,0 \u043a\u043c","value":12962},"duration":{"text":"57 \u043c\u0438\u043d.","value":3399}}]},"station":{"id":155,"name":"\u0421\u0445\u043e\u0434\u043d\u0435\u043d\u0441\u043a\u0430\u044f","metro_line":{"name":"\u0422\u0430\u0433\u0430\u043d\u0441\u043a\u043e-\u041a\u0440\u0430\u0441\u043d\u043e\u043f\u0440\u0435\u0441\u043d\u0435\u043d\u0441\u043a\u0430\u044f","color":"943E90"}},"distance":4295.9764504959},{"id":17,"route":{"legs":[{"distance":{"text":"9,4 \u043a\u043c","value":9379},"duration":{"text":"41 \u043c\u0438\u043d.","value":2451}}]},"station":{"id":133,"name":"\u041f\u0435\u0442\u0440\u043e\u0432\u0441\u043a\u043e-\u0420\u0430\u0437\u0443\u043c\u043e\u0432\u0441\u043a\u0430\u044f","metro_line":{"name":"\u0421\u0435\u0440\u043f\u0443\u0445\u043e\u0432\u0441\u043a\u043e-\u0422\u0438\u043c\u0438\u0440\u044f\u0437\u0435\u0432\u0441\u043a\u0430\u044f","color":"ADACAC"}},"distance":4987.258303491}]},"district":{"name":"\u0445\u043e\u0432\u0440\u0438\u043d\u043e"}},"category":"flat","max_area":46,"min_area":20,"max_rooms":1,"min_rooms":1,"last_update":"2019-06-29 18:08:54.000000","advert_count":36,"max_rent_price":19958,"max_sell_price":null,"min_rent_price":15117,"min_sell_price":null,"photo_files_ids":["1W3V8mi8SG9mXUueo8w43OPMlnFmxrebC","1Kdut7RBron3PUaOI4w2tEfSKpmKs1oub","1SnIEsNdDKFc03LOQljh-2lFl1-yYkkOr","1GHsZVe2cjS4J1_HnPC-9P1iRz-FE-yUy","1ldZD5lPa0pW1SKcMU_3RE86kHLUFyiJN"],"rent_description":"Eligendi qui ducimus porro delectus.Atque voluptates enim quia quis quam.Tempore sunt quidem eligendi similique.Omnis cumque earum repellat.Nihil non culpa iste ut est nobis.Harum eveniet dolorem recusandae et.Qui officia eaque sunt est perferendis magni ut illum.Officiis ea aut sint quisquam.Eligendi nulla consectetur inventore.Numquam eveniet eligendi aliquid aperiam.Est facere doloremque dolorem sint quis et.Non cupiditate non ut ut porro illum et.Beatae nemo aut iusto dicta asperiores ut fuga.Voluptas sed aut qui corrupti.Libero quis repellendus illum cum voluptatem non sit.Voluptatem perspiciatis tempore unde odio repellendus quisquam sit.Non deleniti eaque et modi fugiat qui et rem.Et ratione a enim.Illo sint quo aut aut sint provident.Sit hic magni a ut sapiente et ea et.","sell_description":null,"rent_contacts_ids":[29,7,20,31,23,15,11,18,25],"sell_contacts_ids":[]}
 ```
