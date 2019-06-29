@@ -28,8 +28,12 @@ class FieldCollection
         return $this->elements;
     }
 
-    public function getByName(string $name): ?Field
+    public function getByName(?string $name): ?Field
     {
+        if (!$name) {
+            return null;
+        }
+
         return $this->elements[$name] ?? null;
     }
 }

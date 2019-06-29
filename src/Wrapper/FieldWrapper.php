@@ -154,8 +154,8 @@ class FieldWrapper
             return $this->wrapRelation($field, $steps, $suffix);
         }
 
-        if (JoinField::TYPE_COLLECTION === $field->getType() && $relation) {
-            return $this->wrapRelation($field, $steps, $suffix);
+        if (JoinField::TYPE_COLLECTION === $field->getType() && !$field->getProperty()) {
+            return $this->wrapRelationCollection($field, $steps, $suffix);
         }
 
         if (JoinField::TYPE_COLLECTION === $field->getType()) {
@@ -194,6 +194,112 @@ class FieldWrapper
         return $sql;
     }
 
+    /**
+     * Wrap as JSON_OBJECT, collection to array of JSONs.
+     *
+     * @param JoinField $field
+     * @param array     $steps
+     * @param string    $masterSuffix
+     *
+     * @return string
+     */
+    private function wrapRelationCollection(JoinField $field, array $steps, string $masterSuffix): string
+    {
+        /** @var Table $last */
+        $last          = \end($steps);
+        $uniqSuffix    = \mb_substr(\md5(\uniqid()), 0, 5);
+        $uniqSubSelect = 's_' . \mb_substr(\md5(\uniqid()), 0, 5);
+        $joins         = $this->getJoins($steps, $uniqSuffix);
+        $table         = $field->getTable();
+
+        $filter    = $this->getFilter($field, $uniqSuffix, $last);
+        $filterSql = '';
+
+        if ($filter) {
+            $filterSql = ' WHERE ' . \implode(' AND ', $filter);
+        }
+
+        $simpleFields = $this->filterFields($last, SimpleField::class);
+
+        $wrap = [];
+
+        foreach ($simpleFields as $simpleField) {
+            $fieldGroups = $simpleField->getGroups();
+            $intersect   = \array_intersect($fieldGroups, $this->groups);
+
+            if (0 === \count($intersect)) {
+                continue;
+            }
+
+            $wrap[] = $this->wrapSimple($simpleField, "_${uniqSubSelect}");
+        }
+
+        $wrapResult = \implode(',', $wrap);
+
+        $sql = "'{$field->getName()}',(SELECT IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT({$wrapResult})) "
+            . "FROM (SELECT DISTINCT {$last->getAlias()}_{$uniqSuffix}.{$last->getIdField()}, {$table->getAlias()}_{$uniqSuffix}.{$table->getIdField()}, {$this->otherFields($simpleFields, $last, "{$last->getAlias()}_{$uniqSuffix}")}"
+            . " FROM {$last->getName()} {$last->getAlias()}_{$uniqSuffix} "
+            . \implode(' ', $joins) . " {$filterSql}) {$last->getAlias()}_{$uniqSubSelect}"
+            . " WHERE {$last->getAlias()}_{$uniqSubSelect}.{$table->getIdField()} = {$table->getAlias()}{$masterSuffix}.{$table->getIdField()}), JSON_ARRAY()))"
+        ;
+
+        return $sql;
+    }
+
+    /**
+     * Get second part of select field list, without ID column, becasue it was already used as DISTINCT.
+     *
+     * @param array  $simpleFields
+     * @param Table  $table
+     * @param string $prefix
+     *
+     * @return string
+     */
+    private function otherFields(array $simpleFields, Table $table, string $prefix): string
+    {
+        $result = [];
+
+        /** @var SimpleField $field */
+        foreach ($simpleFields as $field) {
+            if ($table->getIdField() === $field->getName()) {
+                continue;
+            }
+
+            $result[] = "{$prefix}.{$field->getName()}";
+        }
+
+        return \implode(', ', $result);
+    }
+
+    /**
+     * @param Table  $table
+     * @param string $class
+     *
+     * @return array|SimpleField[]
+     */
+    private function filterFields(Table $table, string $class): array
+    {
+        $result = [];
+
+        /** @var SimpleField $element */
+        foreach ($table->getFieldList()->getElements() as $element) {
+            if (!$element instanceof $class) {
+                continue;
+            }
+
+            $result[$element->getName()] = $element;
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param JoinField $field
+     * @param array     $steps
+     * @param string    $masterSuffix
+     *
+     * @return string
+     */
     private function wrapRelation(JoinField $field, array $steps, string $masterSuffix): string
     {
         /** @var Table $last */
@@ -230,18 +336,7 @@ class FieldWrapper
 
         $sql = $this->wrapField($join, "_{$uniqueSuffix}", $joinClosure, $whereClosure, $orderByClosure);
 
-        if (!($join instanceof ManyToOneField && JoinField::TYPE_COLLECTION === $field->getType()) || $join instanceof ManyToManyField) {
-            return $sql;
-        }
-
-        // ToDo weak place, need to improve in future
-        \preg_match('/,\(SELECT\s+JSON_OBJECT\((?P<json_object>.+)\)\s+(?P<sql>.+)\s+LIMIT 1\)/ui', $sql, $matches);
-
-        if ([] === $matches) {
-            throw new \RuntimeException('Can\'t parse collection sql.', self::ERROR_CAN_NOT_PARSE_COLLECTION_SQL);
-        }
-
-        return "'{$field->getName()}',(SELECT IFNULL((SELECT JSON_ARRAYAGG(JSON_OBJECT({$matches['json_object']})) {$matches['sql']}), JSON_ARRAY()))";
+        return $sql;
     }
 
     /**
