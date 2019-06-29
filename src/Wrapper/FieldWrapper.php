@@ -174,7 +174,7 @@ class FieldWrapper
         $column = $this->getTableColumn($last, $field->getProperty());
 
         $uniqSuffix    = \mb_substr(\md5(\uniqid()), 0, 5);
-        $uniqSubSelect = \mb_substr(\md5(\uniqid()), 0, 5);
+        $uniqSubSelect = 's_' . \mb_substr(\md5(\uniqid()), 0, 5);
         $joins         = $this->getJoins($steps, $uniqSuffix);
         $table         = $field->getTable();
 
@@ -185,10 +185,10 @@ class FieldWrapper
             $filterSql = ' WHERE ' . \implode(' AND ', $filter);
         }
 
-        $sql = "'{$field->getName()}',(SELECT JSON_ARRAYAGG({$uniqSubSelect}.{$column}) FROM (SELECT DISTINCT {$last->getAlias()}_{$uniqSuffix}.{$column}, {$table->getAlias()}_{$uniqSuffix}.{$table->getIdField()} "
+        $sql = "'{$field->getName()}',(SELECT IFNULL((SELECT JSON_ARRAYAGG({$uniqSubSelect}.{$column}) FROM (SELECT DISTINCT {$last->getAlias()}_{$uniqSuffix}.{$column}, {$table->getAlias()}_{$uniqSuffix}.{$table->getIdField()} "
             . "FROM {$last->getName()} {$last->getAlias()}_{$uniqSuffix} "
             . \implode(' ', $joins) . " {$filterSql}) {$uniqSubSelect}"
-            . " WHERE {$uniqSubSelect}.{$table->getIdField()} = {$table->getAlias()}{$masterSuffix}.{$table->getIdField()})"
+            . " WHERE {$uniqSubSelect}.{$table->getIdField()} = {$table->getAlias()}{$masterSuffix}.{$table->getIdField()}), JSON_ARRAY()))"
         ;
 
         return $sql;
@@ -454,7 +454,6 @@ class FieldWrapper
      * @param string            $aliasSuffix
      * @param \Closure          $join
      * @param \Closure          $where
-     * @param \Closure          $groupBy
      * @param \Closure          $orderBy
      *
      * @return string
@@ -546,7 +545,6 @@ class FieldWrapper
      * @param string          $aliasSuffix
      * @param null|\Closure   $join
      * @param null|\Closure   $where
-     * @param null|\Closure   $groupBy
      * @param null|\Closure   $orderBy
      *
      * @return string
